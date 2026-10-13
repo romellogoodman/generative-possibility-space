@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Path Bar</title>
+<style>
+:root {
+  --color-text: #e5e5e5;
+  --color-text-light: #7b7b78;
+  --color-bg: #1b1b1b;
+  --color-surface: #262625;
+  --color-line: #333331;
+  --color-hover: #30302e;
+  --color-frame: #111111;
+  --color-highlight: #6f9bff;
+  --shadow: 0 6px 24px rgb(0 0 0 / 30%);
+  --output-light: 82%;
+  --output-range: 56%;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --spacing-unit: 8px;
+  --spacing-2x: 16px;
+  --spacing-3x: 24px;
+  --morph: 280ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-text: #1a1a1a;
+    --color-text-light: #6f6f6b;
+    --color-bg: #f4f4f2;
+    --color-surface: #ffffff;
+    --color-line: #e2e2de;
+    --color-hover: #ececea;
+    --color-frame: #fcfcfb;
+    --color-highlight: #2f6fed;
+    --shadow: 0 6px 24px rgb(0 0 0 / 10%);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --color-text: #1a1a1a;
+  --color-text-light: #6f6f6b;
+  --color-bg: #f4f4f2;
+  --color-surface: #ffffff;
+  --color-line: #e2e2de;
+  --color-hover: #ececea;
+  --color-frame: #fcfcfb;
+  --color-highlight: #2f6fed;
+  --shadow: 0 6px 24px rgb(0 0 0 / 10%);
+  color-scheme: light;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: 13px/1.35 system-ui, sans-serif;
+  overflow-x: hidden;
+}
+button {
+  font: inherit; color: inherit; background: none; border: 0;
+  cursor: pointer; text-align: inherit; padding: 0;
+}
+button:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--color-highlight);
+  outline-offset: 2px;
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- The path bar ---------- */
+.path-bar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  max-width: calc(100vw - 24px);
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.path {
+  display: flex;
+  align-items: center;
+  margin: 0; padding: 0; list-style: none;
+  white-space: nowrap;
+}
+.path__seg {
+  display: flex;
+  align-items: center;
+  flex: none;
+  white-space: nowrap;
+}
+.path__seg--morphing, .path__seg--leaving { overflow: hidden; }
+.path__seg--leaving { pointer-events: none; }
+.path__sep {
+  color: var(--color-text-light);
+  opacity: 0.6;
+  padding: 0 1px;
+  user-select: none;
+}
+.path__control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--color-text);
+  transition: background 0.15s, color 0.15s;
+}
+.path__control--brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: default;
+}
+button.path__control:hover, .path__control[aria-expanded="true"] { background: var(--color-hover); }
+button.path__control:focus-visible { outline-offset: -2px; }
+.path__control--back { color: var(--color-text-light); }
+.path__control--back:hover { color: var(--color-text); }
+.path__control--back .path__label { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .15s; }
+.path__control--back:hover .path__label { text-decoration-color: currentColor; }
+.path__control--more { letter-spacing: 0.08em; color: var(--color-text-light); }
+.path__label { display: inline-block; }
+.path__caret {
+  color: var(--color-text-light);
+  font-size: 10px;
+  transition: transform 0.2s var(--ease);
+}
+.path__control[aria-expanded="true"] .path__caret { transform: rotate(180deg); }
+.path__swatch {
+  width: 12px; height: 12px; border-radius: 2px; flex: none;
+}
+.path__muted { color: var(--color-text-light); }
+
+/* off-screen copy used to measure segment widths */
+.path--measure {
+  position: absolute; left: -9999px; top: 0; visibility: hidden;
+  font-family: var(--font-mono); font-size: 13px;
+}
+
+/* ---------- Menus ---------- */
+.menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 180px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  transform-origin: top left;
+  animation: menu-in 0.16s var(--ease);
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+.menu__heading {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  color: var(--color-text-light);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.menu__rule { height: 1px; margin: 4px 6px; background: var(--color-line); }
+.menu__item {
+  display: grid;
+  grid-template-columns: 16px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px 7px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.menu__item:focus { outline: none; background: var(--color-hover); }
+.menu__item:focus-visible { outline: 2px solid var(--color-highlight); outline-offset: -2px; }
+.menu__check { color: var(--color-highlight); font-size: 11px; text-align: center; }
+.menu__swatch { width: 14px; height: 14px; border-radius: 2px; }
+.menu__label--mono { font-family: var(--font-mono); }
+.menu__hint { color: var(--color-text-light); font-family: var(--font-mono); font-size: 11px; justify-self: end; padding-left: 12px; }
+
+/* ---------- Outputs ---------- */
+.output {
+  background: hsl(0 0% calc(var(--output-light) - var(--shade, 0.5) * var(--output-range)));
+  border-radius: 2px;
+}
+.frame {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--color-frame);
+  border-radius: 4px;
+}
+.frame > .output { width: calc(var(--size) * 100%); aspect-ratio: 1; }
+.score { font-size: 10px; letter-spacing: 1px; white-space: nowrap; }
+.score__empty { opacity: 0.22; }
+
+/* ---------- Stage ---------- */
+.stage {
+  padding: 68px var(--spacing-2x) var(--spacing-3x);
+  min-height: 100vh;
+}
+.stage--enter { animation: stage-in 0.3s var(--ease); }
+@keyframes stage-in { from { opacity: 0; transform: translateY(6px); } }
+
+.tile {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  transition: transform 0.15s;
+}
+.tile:hover { transform: scale(1.03); }
+.tile:hover .frame { outline: 1px solid var(--color-line); }
+
+/* Canvas: staggered */
+.stagger { display: flex; gap: 14px; }
+.stagger__col { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.stagger__col:nth-child(even) { padding-top: 48px; }
+/* Canvas: contact sheet */
+.contact { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px 8px; }
+.contact__cap { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; font-size: 11px; color: var(--color-text-light); }
+
+/* Table: spreadsheet */
+.sheet { max-width: 860px; }
+.sheet__row {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 1fr 1fr 1.5fr;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-line);
+}
+button.sheet__row:hover { background: var(--color-surface); }
+.sheet__row--head { color: var(--color-text-light); font-size: 12px; }
+.sheet__row--head .is-sorted { color: var(--color-text); }
+.sheet__thumb { width: 28px; }
+.sheet__num { text-align: right; }
+@media (max-width: 560px) {
+  .sheet__row { grid-template-columns: 28px 1fr 1fr 1.6fr; }
+  .sheet__col--wide { display: none; }
+}
+/* Table: cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.card { padding: 8px; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 6px; width: 100%; }
+.card:hover { border-color: var(--color-text-light); }
+.card__meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; }
+.card__date { color: var(--color-text-light); font-size: 11px; margin-top: 2px; }
+/* Table: split */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; max-width: 900px; }
+.split__list { display: flex; flex-direction: column; }
+.split__item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 4px; width: 100%; }
+.split__item:hover { background: var(--color-surface); }
+.split__item--active { background: var(--color-surface); box-shadow: inset 2px 0 0 var(--color-highlight); }
+.split__item .frame { width: 22px; }
+.split__preview { position: sticky; top: 68px; align-self: start; }
+.split__preview dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 12px 0 0; }
+.split__preview dt { color: var(--color-text-light); }
+.split__preview dd { margin: 0; }
+@media (max-width: 560px) {
+  .split { grid-template-columns: 1fr; }
+  .split__preview { position: static; order: -1; max-width: 240px; }
+}
+/* Table: grouped */
+.groups { max-width: 860px; display: flex; flex-direction: column; gap: 6px; }
+.group__head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 4px; border-bottom: 1px solid var(--color-line); }
+.group__caret { display: inline-block; width: 10px; color: var(--color-text-light); font-size: 10px; transition: transform .2s var(--ease); }
+.group--closed .group__caret { transform: rotate(-90deg); }
+.group__title { font-weight: 600; }
+.group__meta { color: var(--color-text-light); font-size: 12px; }
+.group__body { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; padding: 10px 0 8px; }
+.group--closed .group__body { display: none; }
+
+/* Focus */
+.focus { max-width: 920px; margin: 0 auto; }
+.focus__big { width: min(100%, 52vh, 460px); }
+.alt-label { font-size: 11px; color: var(--color-text-light); margin-top: 4px; text-align: center; }
+.focus--strip { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.focus--strip .focus__alts { display: grid; grid-template-columns: repeat(6, minmax(0, 72px)); gap: 10px; width: 100%; justify-content: center; }
+.focus--compass {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr);
+  grid-template-areas: ". n ." "w c e" ". s .";
+  gap: 14px; align-items: center; justify-items: center; max-width: 620px;
+}
+.focus--compass .focus__big { width: 100%; }
+.compass__n { grid-area: n; width: 30%; } .compass__s { grid-area: s; width: 30%; }
+.compass__e { grid-area: e; width: 100%; } .compass__w { grid-area: w; width: 100%; } .compass__c { grid-area: c; width: 100%; }
+.focus--inspector { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.focus--inspector .focus__big { width: 100%; }
+.inspector dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0 0 20px; }
+.inspector dt { color: var(--color-text-light); }
+.inspector dd { margin: 0; }
+.inspector__alts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.inspector__h { font-size: 11px; color: var(--color-text-light); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 8px; font-weight: 400; }
+.focus--dials { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.dials { display: grid; grid-template-columns: auto minmax(0, 260px) 3.5em; gap: 10px 14px; align-items: center; width: 100%; max-width: 380px; }
+.dials input { width: 100%; accent-color: var(--color-text); }
+.dials__keep { grid-column: 1 / -1; justify-self: center; padding: 7px 14px; border: 1px solid var(--color-line); border-radius: 999px; background: var(--color-surface); }
+.dials__keep:hover { border-color: var(--color-text-light); }
+@media (max-width: 560px) {
+  .focus--inspector { grid-template-columns: 1fr; }
+  .focus--strip .focus__alts { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 280px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu, .stage--enter { animation: none; }
+}
+</style>
+</head>
+<body>
+<nav class="path-bar" aria-label="View">
+  <ol class="path" id="path"></ol>
+</nav>
+<main class="stage" id="stage"></main>
+
+<script>
+(() => {
+"use strict";
+
+// ---------- Data ----------
+function hash(x, y, seed = 0) {
+  let h = (seed * 2654435761 + x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = Math.imul(h ^ (h >>> 16), 2246822519);
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
+function makeOutput(gx, gy) {
+  const day = Math.floor(hash(gx, gy, 3) * 11);
+  const hour = Math.floor(hash(gx, gy, 4) * 24);
+  const minute = Math.floor(hash(gx, gy, 5) * 60);
+  return {
+    id: `${gx},${gy}`,
+    seed: Math.floor(hash(gx, gy, 7) * 1e6),
+    size: 0.55 + hash(gx, gy, 1) * 0.35,
+    shade: 0.45 + hash(gx, gy, 2) * 0.55,
+    score: Math.floor(hash(gx, gy, 6) * 5) + 1,
+    created: new Date(Date.UTC(2026, 9, 1 + day, hour, minute)),
+  };
+}
+const OUTPUTS = [];
+for (let gy = 0; gy < 6; gy++) for (let gx = 0; gx < 10; gx++) OUTPUTS.push(makeOutput(gx, gy));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function variant(o, k, nudge) {
+  const seed = Math.floor(hash(o.seed, k, 50) * 1e6);
+  const d = nudge || { size: (hash(o.seed, k, 51) - 0.5) * 0.24, shade: (hash(o.seed, k, 52) - 0.5) * 0.36 };
+  return {
+    id: `v${seed}`, seed,
+    size: clamp(o.size + d.size, 0.3, 0.95),
+    shade: clamp(o.shade + d.shade, 0.1, 1),
+    score: Math.floor(hash(seed, 0, 6) * 5) + 1,
+    created: new Date(Date.UTC(2026, 9, 12, 9, k * 3)),
+  };
+}
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pad = (n) => String(n).padStart(2, "0");
+const fmtDay = (d) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+const fmtWhen = (d) => `${fmtDay(d)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+const short = (v) => v.toFixed(2);
+const score = (v) => `<span class="score" aria-label="${v} of 5">${"●".repeat(v)}<span class="score__empty">${"●".repeat(5 - v)}</span></span>`;
+const out = (o) => `<span class="frame" style="--size:${o.size}"><span class="output" style="--shade:${o.shade}"></span></span>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- Options ----------
+const MODES = { canvas: "Canvas", table: "Table" };
+const CANVAS_LAYOUTS = { staggered: "Staggered", contact: "Contact sheet" };
+const TABLE_LAYOUTS = { spreadsheet: "Spreadsheet", cards: "Cards", split: "Split", grouped: "Grouped" };
+const FOCUS_LAYOUTS = { strip: "Strip", compass: "Compass", inspector: "Inspector", dials: "Dials" };
+const SORTS = {
+  seed: { label: "Seed", dir: 1 }, size: { label: "Size", dir: -1 }, shade: { label: "Shade", dir: -1 },
+  score: { label: "Score", dir: -1 }, created: { label: "Created", dir: -1 },
+};
+const GROUPS = {
+  day: { label: "Day", key: (o) => o.created.toISOString().slice(0, 10), title: (k, l) => fmtDay(l[0].created), order: (a, b) => (a < b ? 1 : -1) },
+  score: { label: "Score", key: (o) => String(o.score), title: (k) => `${k} / 5`, order: (a, b) => b - a },
+  size: { label: "Size", key: (o) => (o.size < 0.67 ? "S" : o.size < 0.79 ? "M" : "L"), title: (k) => ({ L: "Large", M: "Medium", S: "Small" })[k], order: (a, b) => "LMS".indexOf(a) - "LMS".indexOf(b) },
+};
+
+// ---------- State ----------
+const S = {
+  mode: "canvas",
+  canvasLayout: "staggered",
+  tableLayout: "spreadsheet",
+  sort: { key: "created", dir: -1 },
+  groupBy: "day",
+  closed: new Set(),
+  previewId: OUTPUTS[0].id,
+  focus: null, // { stack: [outputs], dial: {size, shade} }
+  focusLayout: "inspector",
+};
+const current = () => S.focus.stack[S.focus.stack.length - 1];
+
+function sorted() {
+  const { key, dir } = S.sort;
+  return [...OUTPUTS].sort((a, b) => ((a[key] > b[key]) - (a[key] < b[key])) * dir || a.seed - b.seed);
+}
+function groups() {
+  const g = GROUPS[S.groupBy], map = new Map();
+  for (const o of OUTPUTS) { const k = g.key(o); if (!map.has(k)) map.set(k, []); map.get(k).push(o); }
+  return [...map.entries()].sort((a, b) => g.order(a[0], b[0])).map(([k, list]) => ({ key: k, title: g.title(k, list), list }));
+}
+
+// ---------- Actions ----------
+function setState(patch, opts = {}) {
+  const modeChanged = ("mode" in patch && patch.mode !== S.mode) || ("focus" in patch && !!patch.focus !== !!S.focus);
+  Object.assign(S, patch);
+  render({ fadeStage: modeChanged || opts.fade });
+}
+const openFocus = (o) => setState({ focus: { stack: [o], dial: null } });
+const pushFocus = (o) => { S.focus.stack.push(o); S.focus.dial = null; render({ fadeStage: true }); };
+const jumpFocus = (i) => { S.focus.stack = S.focus.stack.slice(0, i + 1); S.focus.dial = null; render({ fadeStage: true }); };
+let openerId = null;
+const closeFocus = () => {
+  setState({ focus: null });
+  // Put keyboard focus back on the square that opened Focus
+  requestAnimationFrame(() => {
+    const t = openerId && stage.querySelector(`[data-open="${openerId}"]`);
+    if (t) { t.focus({ preventScroll: true }); t.scrollIntoView({ block: "center" }); }
+  });
+};
+
+// ---------- Segments ----------
+// Each segment: { id, label, heading, menu?: () => groups, action?: fn, kind }
+function segments() {
+  const segs = [];
+  const inFocus = !!S.focus;
+  segs.push(inFocus
+    ? { id: "home", label: "GPS", kind: "back", action: closeFocus, title: `Back to ${MODES[S.mode]}`, heading: "Home" }
+    : { id: "home", label: "GPS", kind: "brand" });
+
+  if (inFocus) {
+    const cur = current();
+    segs.push({ id: "mode", label: MODES[S.mode], kind: "back", action: closeFocus, title: `Back to ${MODES[S.mode]} (Esc)`, heading: "Back" });
+    segs.push({
+      id: "seed", label: `#${cur.seed}`, swatch: cur, heading: "Trail",
+      menu: () => [
+        { heading: S.focus.stack.length > 1 ? "Trail" : "Open", items: S.focus.stack.map((o, i) => ({
+          label: `#${o.seed}`, mono: true, swatch: o, checked: i === S.focus.stack.length - 1,
+          hint: i === 0 ? "start" : `${i + 1}`, onSelect: () => jumpFocus(i),
+        })) },
+        { rule: true, items: [{ label: `Back to ${MODES[S.mode]}`, hint: "Esc", icon: "←", onSelect: closeFocus }] },
+      ],
+    });
+    segs.push(radioSeg("flayout", FOCUS_LAYOUTS, S.focusLayout, "View", (v) => setState({ focusLayout: v }, { fade: true })));
+    return segs;
+  }
+
+  segs.push(radioSeg("mode", MODES, S.mode, "Mode", (v) => setState({ mode: v })));
+  if (S.mode === "canvas") {
+    segs.push(radioSeg("layout", CANVAS_LAYOUTS, S.canvasLayout, "Layout", (v) => setState({ canvasLayout: v }, { fade: true })));
+  } else {
+    segs.push(radioSeg("layout", TABLE_LAYOUTS, S.tableLayout, "Layout", (v) => setState({ tableLayout: v }, { fade: true })));
+    if (S.tableLayout === "grouped") {
+      const allClosed = S.closed.size === groups().length;
+      segs.push({
+        id: "order", label: `by ${GROUPS[S.groupBy].label}`, heading: "Group by",
+        menu: () => [
+          { heading: "Group by", items: Object.entries(GROUPS).map(([k, g]) => ({
+            label: g.label, checked: k === S.groupBy, onSelect: () => { S.closed = new Set(); setState({ groupBy: k }); },
+          })) },
+          { rule: true, items: [{
+            label: allClosed ? "Expand all" : "Collapse all", icon: allClosed ? "▸" : "▾",
+            onSelect: () => { S.closed = allClosed ? new Set() : new Set(groups().map((g) => g.key)); render(); },
+          }] },
+        ],
+      });
+    } else {
+      const arrow = S.sort.dir > 0 ? "↑" : "↓";
+      segs.push({
+        id: "order", label: `by ${SORTS[S.sort.key].label} ${arrow}`, heading: "Sort by",
+        menu: () => [
+          { heading: "Sort by", items: Object.entries(SORTS).map(([k, s]) => ({
+            label: s.label, checked: k === S.sort.key,
+            hint: k === S.sort.key ? (S.sort.dir > 0 ? "↑ asc" : "↓ desc") : "",
+            onSelect: () => setSort(k),
+          })) },
+          { rule: true, items: [{ label: "Reverse order", icon: "⇅", onSelect: () => setState({ sort: { key: S.sort.key, dir: -S.sort.dir } }) }] },
+        ],
+      });
+    }
+  }
+  return segs;
+}
+function setSort(k) {
+  const dir = k === S.sort.key ? -S.sort.dir : SORTS[k].dir;
+  setState({ sort: { key: k, dir } });
+}
+function radioSeg(id, options, value, heading, pick) {
+  return {
+    id, label: options[value], heading,
+    menu: () => [{ heading, items: Object.entries(options).map(([k, l], i) => ({
+      label: l, checked: k === value, hint: id === "mode" ? "" : "", onSelect: () => pick(k),
+    })) }],
+  };
+}
+
+// ---------- Collapse to fit ----------
+const pathEl = document.getElementById("path");
+const measurer = document.createElement("ol");
+measurer.className = "path path--measure";
+measurer.setAttribute("aria-hidden", "true");
+document.body.appendChild(measurer);
+
+function measure(seg, first) {
+  const el = document.createElement("li");
+  el.className = "path__seg";
+  fillSeg(el, seg, first, true);
+  measurer.appendChild(el);
+  const w = el.getBoundingClientRect().width;
+  el.remove();
+  return w;
+}
+function fit(segs) {
+  const avail = window.innerWidth - 24 - 10; // bar margin, padding, border
+  const total = (list) => list.reduce((s, seg, i) => s + measure(seg, i === 0), 0);
+  if (segs.length <= 3 || total(segs) <= avail) return segs;
+  // Fold middle segments, starting just after GPS, into "…"; always keep the last one.
+  for (let n = 1; n <= segs.length - 2; n++) {
+    const hidden = segs.slice(1, 1 + n);
+    const more = {
+      id: "more", label: "…", kind: "more", title: hidden.map((h) => h.label).join(" / "),
+      menu: () => hidden.flatMap((h, hi) => {
+        if (h.menu) return h.menu().map((g, gi) => ({ ...g, rule: gi === 0 ? hi > 0 : g.rule, heading: gi === 0 ? `${h.heading} · ${h.label}` : g.heading }));
+        return [{ rule: hi > 0, items: [{ label: h.title || h.label, icon: "←", onSelect: h.action }] }];
+      }),
+    };
+    const list = [segs[0], more, ...segs.slice(1 + n)];
+    if (total(list) <= avail || n === segs.length - 2) return list;
+  }
+  return segs;
+}
+
+// ---------- Render the bar ----------
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DUR = reduced ? 0 : 280;
+const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+
+function fillSeg(li, seg, first, forMeasure) {
+  const prevLabel = li.dataset.label;
+  li.dataset.id = seg.id;
+  li.dataset.label = seg.label;
+  const tag = seg.menu || seg.action ? "button" : "span";
+  let ctrl = li.querySelector(".path__control");
+  if (!ctrl || ctrl.tagName.toLowerCase() !== tag) {
+    li.innerHTML = "";
+    const sep = document.createElement("span");
+    sep.className = "path__sep";
+    sep.setAttribute("aria-hidden", "true");
+    sep.textContent = "/";
+    li.appendChild(sep);
+    ctrl = document.createElement(tag);
+    li.appendChild(ctrl);
+  }
+  li.querySelector(".path__sep").hidden = first;
+  ctrl.className = `path__control${seg.kind ? ` path__control--${seg.kind}` : ""}`;
+  if (!forMeasure) ctrl.id = `seg-${seg.id}`;
+  if (tag === "button") {
+    ctrl.type = "button";
+    if (seg.menu) { ctrl.setAttribute("aria-haspopup", "menu"); if (!ctrl.hasAttribute("aria-expanded")) ctrl.setAttribute("aria-expanded", "false"); }
+    else { ctrl.removeAttribute("aria-haspopup"); ctrl.removeAttribute("aria-expanded"); }
+    const aria = seg.heading ? `${seg.kind === "back" ? seg.title : `${seg.heading}: ${seg.label}`}` : seg.title || seg.label;
+    ctrl.setAttribute("aria-label", seg.kind === "more" ? `More: ${seg.title}` : aria);
+    if (seg.title) ctrl.title = seg.title; else ctrl.removeAttribute("title");
+  }
+  ctrl.innerHTML =
+    (seg.swatch ? `<span class="path__swatch output" style="--shade:${seg.swatch.shade}"></span>` : "") +
+    `<span class="path__label">${esc(seg.label)}</span>` +
+    (seg.menu && seg.kind !== "more" ? `<span class="path__caret" aria-hidden="true">▾</span>` : "");
+  if (!forMeasure && prevLabel && prevLabel !== seg.label && DUR) {
+    ctrl.querySelector(".path__label").animate(
+      [{ opacity: 0, transform: "translateY(-5px)", filter: "blur(2px)" }, { opacity: 1, transform: "none", filter: "none" }],
+      { duration: DUR, easing: EASE });
+  }
+}
+
+let SEGS = [];
+function renderBar() {
+  const segs = fit(segments());
+  SEGS = segs;
+  const existing = new Map();
+  const before = new Map();
+  for (const li of pathEl.children) {
+    existing.set(li.dataset.id, li);
+    before.set(li.dataset.id, li.getBoundingClientRect().width);
+  }
+  const keep = new Set(segs.map((s) => s.id));
+
+  // Leaving segments shrink to nothing, then go
+  existing.forEach((li, id) => {
+    if (keep.has(id)) return;
+    if (li.classList.contains("path__seg--leaving")) return;
+    li.classList.add("path__seg--leaving");
+    li.inert = true;
+    const c = li.querySelector(".path__control"); if (c) c.removeAttribute("id");
+    li.getAnimations().forEach((a) => a.cancel());
+    if (!DUR) { li.remove(); return; }
+    const a = li.animate(
+      [{ width: `${before.get(id)}px`, opacity: 1 }, { width: "0px", opacity: 0, transform: "translateY(-3px)" }],
+      { duration: DUR * 0.85, easing: EASE, fill: "forwards" });
+    a.onfinish = () => li.remove();
+  });
+
+  // Place and update the segments that stay or arrive
+  let prev = null;
+  const entering = new Set();
+  segs.forEach((seg, i) => {
+    let li = existing.get(seg.id);
+    if (!li) { li = document.createElement("li"); li.className = "path__seg"; entering.add(seg.id); }
+    else if (li.classList.contains("path__seg--leaving")) {
+      li.classList.remove("path__seg--leaving"); li.inert = false;
+    }
+    li.getAnimations().forEach((a) => a.cancel());
+    fillSeg(li, seg, i === 0, false);
+    const ref = prev ? prev.nextSibling : pathEl.firstChild;
+    if (ref !== li) pathEl.insertBefore(li, ref);
+    prev = li;
+  });
+
+  // Morph widths from where they were to where they now want to be
+  if (!DUR) return;
+  segs.forEach((seg) => {
+    const li = pathEl.querySelector(`.path__seg[data-id="${seg.id}"]:not(.path__seg--leaving)`);
+    const to = li.getBoundingClientRect().width;
+    const isNew = entering.has(seg.id);
+    const from = isNew ? 0 : before.get(seg.id);
+    if (Math.abs(to - from) < 0.5) return;
+    li.classList.add("path__seg--morphing");
+    const frames = isNew
+      ? [{ width: "0px", opacity: 0, transform: "translateY(4px)" }, { width: `${to}px`, opacity: 1, transform: "none" }]
+      : [{ width: `${from}px` }, { width: `${to}px` }];
+    const a = li.animate(frames, { duration: DUR, easing: EASE, delay: isNew ? DUR * 0.15 : 0, fill: "backwards" });
+    const done = () => li.classList.remove("path__seg--morphing");
+    a.onfinish = done; a.oncancel = done;
+  });
+}
+
+// ---------- Menus ----------
+let menu = null; // { el, trigger, segId, items }
+function openMenu(trigger, focusAt = "checked") {
+  const li = trigger.closest(".path__seg");
+  const seg = SEGS.find((s) => s.id === li.dataset.id);
+  if (!seg || !seg.menu) return;
+  closeMenu(false);
+  const el = document.createElement("div");
+  el.className = "menu";
+  el.setAttribute("role", "menu");
+  el.setAttribute("aria-labelledby", trigger.id);
+  el.id = "path-menu";
+  const items = [];
+  seg.menu().forEach((g) => {
+    if (g.rule && el.childElementCount) { const r = document.createElement("div"); r.className = "menu__rule"; r.setAttribute("role", "separator"); el.appendChild(r); }
+    const grp = document.createElement("div");
+    grp.setAttribute("role", "group");
+    if (g.heading) {
+      const h = document.createElement("div");
+      h.className = "menu__heading"; h.textContent = g.heading; h.id = `mh-${items.length}`;
+      el.appendChild(h); grp.setAttribute("aria-labelledby", h.id);
+    }
+    g.items.forEach((it) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "menu__item";
+      b.tabIndex = -1;
+      const radio = "checked" in it;
+      b.setAttribute("role", radio ? "menuitemradio" : "menuitem");
+      if (radio) b.setAttribute("aria-checked", String(!!it.checked));
+      b.innerHTML =
+        `<span class="menu__check" aria-hidden="true">${it.checked ? "●" : it.icon || ""}</span>` +
+        (it.swatch ? `<span class="menu__swatch output" style="--shade:${it.swatch.shade}"></span>` : "<span></span>") +
+        `<span class="${it.mono ? "menu__label--mono" : ""}">${esc(it.label)}</span>` +
+        `<span class="menu__hint">${esc(it.hint || "")}</span>`;
+      b.addEventListener("click", () => choose(it));
+      b.addEventListener("pointermove", () => { if (document.activeElement !== b) b.focus({ preventScroll: true }); });
+      grp.appendChild(b);
+      items.push({ b, it });
+    });
+    el.appendChild(grp);
+  });
+  document.body.appendChild(el);
+  const r = trigger.getBoundingClientRect();
+  const w = el.offsetWidth;
+  el.style.top = `${r.bottom + 8}px`;
+  el.style.left = `${Math.max(12, Math.min(r.left - 4, window.innerWidth - w - 12))}px`;
+  trigger.setAttribute("aria-expanded", "true");
+  trigger.setAttribute("aria-controls", el.id);
+  menu = { el, trigger, segId: seg.id, items };
+  let idx = focusAt === "last" ? items.length - 1 : focusAt === "first" ? 0 : Math.max(0, items.findIndex((x) => x.it.checked));
+  items[idx].b.focus({ preventScroll: true });
+  el.addEventListener("keydown", menuKeys);
+}
+function closeMenu(returnFocus = true) {
+  if (!menu) return;
+  const { el, trigger } = menu;
+  menu = null;
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.removeAttribute("aria-controls");
+  el.remove();
+  if (returnFocus && trigger.isConnected) trigger.focus({ preventScroll: true });
+}
+function choose(it) {
+  const segId = menu ? menu.segId : null;
+  closeMenu(false);
+  it.onSelect();
+  // Return focus to the segment that was used, or wherever it went.
+  requestAnimationFrame(() => {
+    const target = document.getElementById(`seg-${segId}`) ||
+      [...pathEl.querySelectorAll(".path__seg:not(.path__seg--leaving) button")].pop();
+    if (target) target.focus({ preventScroll: true });
+  });
+}
+function barButtons() {
+  return [...pathEl.querySelectorAll(".path__seg:not(.path__seg--leaving) button.path__control")];
+}
+function menuKeys(e) {
+  const list = menu.items.map((x) => x.b);
+  const i = list.indexOf(document.activeElement);
+  const go = (n) => { e.preventDefault(); list[(n + list.length) % list.length].focus(); };
+  switch (e.key) {
+    case "ArrowDown": return go(i + 1);
+    case "ArrowUp": return go(i - 1);
+    case "Home": return go(0);
+    case "End": return go(list.length - 1);
+    case "Escape": e.preventDefault(); e.stopPropagation(); return closeMenu(true);
+    case "Tab": return closeMenu(false);
+    case "ArrowLeft": case "ArrowRight": {
+      e.preventDefault();
+      const btns = barButtons();
+      const at = btns.indexOf(menu.trigger);
+      const step = e.key === "ArrowRight" ? 1 : -1;
+      // move to the next segment that has a menu
+      for (let k = 1; k <= btns.length; k++) {
+        const nb = btns[(at + step * k + btns.length * 2) % btns.length];
+        if (nb.getAttribute("aria-haspopup") === "menu") { closeMenu(false); nb.focus(); openMenu(nb); return; }
+      }
+      return;
+    }
+    default:
+      if (e.key.length === 1 && /\S/.test(e.key)) { // typeahead
+        const ch = e.key.toLowerCase();
+        for (let k = 1; k <= list.length; k++) {
+          const b = list[(i + k) % list.length];
+          const text = b.textContent.replace(/^[^A-Za-z0-9#]+/, "").replace(/^#/, "").toLowerCase();
+          if (text.startsWith(ch)) { e.preventDefault(); b.focus(); return; }
+        }
+      }
+  }
+}
+
+pathEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("button.path__control");
+  if (!btn) return;
+  const seg = SEGS.find((s) => s.id === btn.closest(".path__seg").dataset.id);
+  if (!seg) return;
+  if (seg.menu) {
+    if (menu && menu.trigger === btn) closeMenu(true);
+    else openMenu(btn, e.detail === 0 ? "checked" : "checked");
+  } else if (seg.action) { closeMenu(false); seg.action(); }
+});
+pathEl.addEventListener("keydown", (e) => {
+  const btn = e.target.closest("button.path__control");
+  if (!btn) return;
+  const btns = barButtons();
+  const at = btns.indexOf(btn);
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    e.preventDefault();
+    btns[(at + (e.key === "ArrowRight" ? 1 : -1) + btns.length) % btns.length].focus();
+  } else if (e.key === "Home") { e.preventDefault(); btns[0].focus(); }
+  else if (e.key === "End") { e.preventDefault(); btns[btns.length - 1].focus(); }
+  else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && btn.getAttribute("aria-haspopup") === "menu") {
+    e.preventDefault(); openMenu(btn, e.key === "ArrowUp" ? "last" : "checked");
+  }
+});
+document.addEventListener("pointerdown", (e) => {
+  if (menu && !menu.el.contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !menu && S.focus) { e.preventDefault(); closeFocus(); }
+});
+
+// ---------- Stage ----------
+const stage = document.getElementById("stage");
+const tileBtn = (o, inner, cls = "tile", label) =>
+  `<button type="button" class="${cls}" data-open="${o.id}" aria-label="${esc(label || `Open #${o.seed}`)}">${inner}</button>`;
+const BY_ID = new Map(OUTPUTS.map((o) => [o.id, o]));
+let altMap = new Map();
+
+function renderStage() {
+  altMap = new Map();
+  if (S.focus) return renderFocus();
+  if (S.mode === "canvas") {
+    if (S.canvasLayout === "staggered") {
+      const cols = Math.max(3, Math.floor((window.innerWidth - 32) / 130));
+      const buckets = Array.from({ length: cols }, () => []);
+      OUTPUTS.forEach((o, i) => buckets[i % cols].push(o));
+      return `<div class="stagger">${buckets.map((b) => `<div class="stagger__col">${b.map((o) => tileBtn(o, out(o))).join("")}</div>`).join("")}</div>`;
+    }
+    return `<div class="contact">${OUTPUTS.map((o) =>
+      `<div>${tileBtn(o, out(o))}<div class="contact__cap"><span class="mono">#${o.seed}</span>${score(o.score)}</div></div>`).join("")}</div>`;
+  }
+  const list = sorted();
+  switch (S.tableLayout) {
+    case "spreadsheet": {
+      const th = (k, cls = "") => `<span class="${cls}${S.sort.key === k ? " is-sorted" : ""}">${SORTS[k].label}${S.sort.key === k ? (S.sort.dir > 0 ? " ↑" : " ↓") : ""}</span>`;
+      return `<div class="sheet" role="table">
+        <div class="sheet__row sheet__row--head" role="row"><span></span>${th("seed")}${th("size", "sheet__col--wide ")}${th("shade", "sheet__col--wide ")}${th("score")}${th("created")}</div>
+        ${list.map((o) => `<button type="button" class="sheet__row" data-open="${o.id}" role="row">
+          <span class="sheet__thumb">${out(o)}</span><span class="mono">#${o.seed}</span>
+          <span class="mono sheet__col--wide">${short(o.size)}</span><span class="mono sheet__col--wide">${short(o.shade)}</span>
+          <span>${score(o.score)}</span><span class="mono">${fmtWhen(o.created)}</span></button>`).join("")}
+      </div>`;
+    }
+    case "cards":
+      return `<div class="cards">${list.map((o) => tileBtn(o,
+        `${out(o)}<div class="card__meta"><span class="mono">#${o.seed}</span>${score(o.score)}</div><div class="card__date mono">${fmtWhen(o.created)}</div>`,
+        "card")).join("")}</div>`;
+    case "split": {
+      const p = BY_ID.get(S.previewId) || list[0];
+      return `<div class="split"><div class="split__list">${list.map((o) =>
+        `<button type="button" class="split__item${o.id === p.id ? " split__item--active" : ""}" data-preview="${o.id}">${out(o)}<span class="mono">#${o.seed}</span><span style="margin-left:auto">${score(o.score)}</span></button>`).join("")}</div>
+        <div class="split__preview">${tileBtn(p, out(p))}
+        <dl><dt>Seed</dt><dd class="mono">#${p.seed}</dd><dt>Size</dt><dd class="mono">${short(p.size)}</dd><dt>Shade</dt><dd class="mono">${short(p.shade)}</dd><dt>Score</dt><dd>${score(p.score)}</dd><dt>Created</dt><dd class="mono">${fmtWhen(p.created)}</dd></dl></div></div>`;
+    }
+    case "grouped":
+      return `<div class="groups">${groups().map((g) => {
+        const avg = g.list.reduce((s, o) => s + o.score, 0) / g.list.length;
+        const closed = S.closed.has(g.key);
+        return `<section class="group${closed ? " group--closed" : ""}">
+          <button type="button" class="group__head" data-toggle="${g.key}" aria-expanded="${!closed}"><span class="group__caret">▾</span><span class="group__title">${g.title}</span><span class="group__meta mono">${g.list.length} · avg ${avg.toFixed(1)}</span></button>
+          <div class="group__body">${g.list.map((o) => tileBtn(o, out(o))).join("")}</div></section>`;
+      }).join("")}</div>`;
+  }
+}
+
+function altBtn(v, label) {
+  altMap.set(v.id, v);
+  return `<div><button type="button" class="tile" data-alt="${v.id}" aria-label="Open variation #${v.seed}">${out(v)}</button>${label ? `<div class="alt-label">${label}</div>` : ""}</div>`;
+}
+function renderFocus() {
+  const o = current();
+  const big = `<div class="focus__big">${out(o)}</div>`;
+  switch (S.focusLayout) {
+    case "strip":
+      return `<div class="focus focus--strip">${big}<div class="focus__alts">${[1, 2, 3, 4, 5, 6].map((k) => altBtn(variant(o, k))).join("")}</div></div>`;
+    case "compass":
+      return `<div class="focus focus--compass">
+        <div class="compass__n">${altBtn(variant(o, 11, { size: 0.12, shade: 0 }), "size +")}</div>
+        <div class="compass__w">${altBtn(variant(o, 12, { size: 0, shade: -0.18 }), "lighter")}</div>
+        <div class="compass__c">${out(o)}</div>
+        <div class="compass__e">${altBtn(variant(o, 13, { size: 0, shade: 0.18 }), "darker")}</div>
+        <div class="compass__s">${altBtn(variant(o, 14, { size: -0.12, shade: 0 }), "size −")}</div></div>`;
+    case "inspector":
+      return `<div class="focus focus--inspector">${big}<div class="inspector">
+        <dl><dt>Seed</dt><dd class="mono">#${o.seed}</dd><dt>Size</dt><dd class="mono">${short(o.size)}</dd><dt>Shade</dt><dd class="mono">${short(o.shade)}</dd><dt>Score</dt><dd>${score(o.score)}</dd><dt>Created</dt><dd class="mono">${fmtWhen(o.created)}</dd></dl>
+        <h2 class="inspector__h">Variations</h2><div class="inspector__alts">${[1, 2, 3, 4, 5, 6].map((k) => altBtn(variant(o, k))).join("")}</div></div></div>`;
+    case "dials": {
+      const d = S.focus.dial || { size: o.size, shade: o.shade };
+      return `<div class="focus focus--dials"><div class="focus__big"><span class="frame" id="dial-frame" style="--size:${d.size}"><span class="output" id="dial-out" style="--shade:${d.shade}"></span></span></div>
+        <div class="dials">
+          <label for="d-size">Size</label><input id="d-size" type="range" min="0.3" max="0.95" step="0.01" value="${d.size}" data-dial="size"><span class="mono" id="v-size">${short(d.size)}</span>
+          <label for="d-shade">Shade</label><input id="d-shade" type="range" min="0.1" max="1" step="0.01" value="${d.shade}" data-dial="shade"><span class="mono" id="v-shade">${short(d.shade)}</span>
+          <button type="button" class="dials__keep" data-keep>Keep as new square</button>
+        </div></div>`;
+    }
+  }
+}
+
+stage.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-open],[data-alt],[data-preview],[data-toggle],[data-keep]");
+  if (!t) return;
+  if (t.dataset.open) openerId = t.dataset.open, openFocus(BY_ID.get(t.dataset.open));
+  else if (t.dataset.alt) pushFocus(altMap.get(t.dataset.alt));
+  else if (t.dataset.preview) { S.previewId = t.dataset.preview; renderStageOnly(false); document.querySelector(`[data-preview="${t.dataset.preview}"]`).focus({ preventScroll: true }); }
+  else if (t.dataset.toggle) { const k = t.dataset.toggle; S.closed.has(k) ? S.closed.delete(k) : S.closed.add(k); render(); document.querySelector(`[data-toggle="${k}"]`).focus({ preventScroll: true }); }
+  else if (t.hasAttribute("data-keep")) {
+    const o = current(), d = S.focus.dial || { size: o.size, shade: o.shade };
+    pushFocus(variant(o, 99, { size: d.size - o.size, shade: d.shade - o.shade }));
+  }
+});
+stage.addEventListener("input", (e) => {
+  const k = e.target.dataset.dial;
+  if (!k) return;
+  const o = current();
+  S.focus.dial = S.focus.dial || { size: o.size, shade: o.shade };
+  S.focus.dial[k] = Number(e.target.value);
+  document.getElementById("dial-frame").style.setProperty("--size", S.focus.dial.size);
+  document.getElementById("dial-out").style.setProperty("--shade", S.focus.dial.shade);
+  document.getElementById(`v-${k}`).textContent = short(S.focus.dial[k]);
+});
+
+function renderStageOnly(fade) {
+  const y = window.scrollY;
+  stage.innerHTML = renderStage();
+  if (fade) {
+    window.scrollTo(0, 0);
+    stage.classList.remove("stage--enter"); void stage.offsetWidth; stage.classList.add("stage--enter");
+  } else window.scrollTo(0, y);
+}
+function render(opts = {}) {
+  renderBar();
+  renderStageOnly(!!opts.fadeStage);
+}
+
+let raf = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(() => { closeMenu(false); render(); });
+});
+
+render();
+})();
+</script>
+</body>
+</html>

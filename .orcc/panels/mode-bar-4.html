@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#f4f4f2;--fg:#1a1a1a;--muted:#8a8a86;--sq:#c9c9c5;--bar:#ffffff;--line:#e2e2de;--accent:#1a1a1a;--on-accent:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#121212;--fg:#ededed;--muted:#7b7b78;--sq:#3a3a38;--bar:#1d1d1c;--line:#2c2c2a;--accent:#ededed;--on-accent:#121212}}
+:root[data-theme=dark],.dark{--bg:#121212;--fg:#ededed;--muted:#7b7b78;--sq:#3a3a38;--bar:#1d1d1c;--line:#2c2c2a;--accent:#ededed;--on-accent:#121212}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;overflow:hidden}
+.stage{position:absolute;inset:0 0 var(--bar-h,0) 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;padding:24px;align-content:start;overflow:hidden}
+.sq{aspect-ratio:1;background:var(--sq);border-radius:2px}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+:root{--bar-h:48px}
+.bar{position:fixed;left:0;right:0;bottom:0;height:var(--bar-h);display:flex;align-items:center;justify-content:center;gap:28px;border-top:1px solid var(--line);background:var(--bg);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.bar button{color:var(--muted);padding:6px 0;border-bottom:1px solid transparent}
+.bar button kbd{font:inherit;opacity:.5;margin-right:6px}
+.bar button:hover{color:var(--fg)}
+.bar button.is-active{color:var(--fg);border-bottom-color:var(--fg)}
+
+</style></head><body>
+<div class="stage"><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div></div>
+<nav class="bar"><button data-mode="Grid" class=" is-active"><kbd>1</kbd>Grid</button><button data-mode="Feed" class=""><kbd>2</kbd>Feed</button><button data-mode="Canvas" class=""><kbd>3</kbd>Canvas</button><button data-mode="Stack" class=""><kbd>4</kbd>Stack</button><button data-mode="Compare" class=""><kbd>5</kbd>Compare</button></nav>
+<script>
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('is-active',x===b));}));
+addEventListener('keydown',e=>{const i=+e.key-1;const b=document.querySelectorAll('[data-mode]')[i];if(b)b.click()});
+</script></body></html>

@@ -1,0 +1,124 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#f4f4f2;--fg:#1a1a1a;--muted:#6f6f6b;--surface:#fff;--line:#e2e2de;--accent:#1a1a1a;--on-accent:#fff;--hi:#2f6fed;--frame:#fcfcfb}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1b1b;--fg:#e5e5e5;--muted:#8f8f8b;--surface:#262625;--line:#363634;--accent:#e5e5e5;--on-accent:#1b1b1b;--hi:#6f9bff;--frame:#111}}
+:root[data-theme=dark]{--bg:#1b1b1b;--fg:#e5e5e5;--muted:#8f8f8b;--surface:#262625;--line:#363634;--accent:#e5e5e5;--on-accent:#1b1b1b;--hi:#6f9bff;--frame:#111}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:13px/1.35 system-ui,-apple-system,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;font-variant-numeric:tabular-nums}
+.bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:50}
+.bar button{padding:7px 15px;border-radius:999px;color:var(--muted)}
+.bar button.on{background:var(--accent);color:var(--on-accent)}
+/* an output: a square canvas with a grey square of a given size and shade */
+.frame{width:100%;aspect-ratio:1;display:grid;place-items:center;background:var(--frame);border-radius:4px;box-shadow:inset 0 0 0 1px var(--line)}
+.sq{width:calc(var(--s)*100%);aspect-ratio:1;background:hsl(0 0% var(--l));border-radius:2px;transition:width .25s,background .25s}
+.pop{animation:pop .28s ease-out}
+@keyframes pop{from{opacity:.3;transform:scale(.97)}}
+/* top bar: back + history trail */
+.top{position:fixed;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.top>*{pointer-events:auto}
+.back{flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.back:hover{border-color:var(--fg)}
+.back kbd{font:11px ui-monospace,Menlo,monospace;color:var(--muted);margin-left:6px;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.trail{display:flex;align-items:center;gap:3px;min-width:0;overflow-x:auto;scrollbar-width:none;padding:3px 8px 3px 4px;background:var(--surface);border:1px solid var(--line);border-radius:999px}
+.trail[hidden]{display:none}
+.trail__crumb{flex:none;width:24px;padding:2px;border-radius:5px}
+.trail__crumb:hover{background:var(--line)}
+.trail__crumb--cur{outline:1.5px solid var(--hi);outline-offset:-1px;cursor:default}
+.trail__crumb .frame{border-radius:2px}
+.trail__sep,.trail__more{flex:none;color:var(--muted);font-size:11px}
+.trail__more{padding:0 4px}
+.stars{letter-spacing:1px;color:var(--fg)}.stars span{color:var(--line)}
+.d-0{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:78px;transform:translate(-50%,6px);background:var(--accent);color:var(--on-accent);padding:7px 12px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;z-index:70;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.stage{position:fixed;inset:56px 0 76px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;padding:0 24px;align-items:center}
+.hero{container-type:size;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:0}
+.hero__img{width:min(100cqw,calc(100cqh - 30px),560px);box-shadow:0 10px 40px rgba(0,0,0,.12);border-radius:4px}
+.meta{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 14px;color:var(--muted);white-space:nowrap}
+.meta b{font-weight:500;color:var(--fg)}
+.dials{display:flex;flex-direction:column;gap:26px;max-width:560px;min-width:0}
+.dial__hd{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.dial__name{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.dial__note{color:var(--muted);font-size:12px}
+.dial__row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.step{display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px;border-radius:6px;transition:background .15s}
+.step--alt:hover{background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+.step--alt:hover .frame{box-shadow:inset 0 0 0 1px var(--line),0 0 0 2px var(--hi)}
+.step--cur{cursor:default}.step--cur .frame{box-shadow:inset 0 0 0 1px var(--line),0 0 0 2px var(--fg)}
+.step--cur .step__v{color:var(--fg);font-weight:600}
+.step--none{visibility:hidden}
+.step__v{font-size:11px;color:var(--muted)}
+.track{display:flex;align-items:center;gap:8px;margin:8px 4px 0;font-size:10px;color:var(--muted)}
+.track__bar{position:relative;flex:1;height:2px;background:var(--line);border-radius:1px}
+.track__bar i{position:absolute;top:-3px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--fg)}
+.dials__foot{color:var(--muted);font-size:12px}
+@media(max-width:760px){
+ .stage{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:14px;padding:0 16px;align-items:stretch}
+ .dials{gap:14px;max-width:none}.dial__row{gap:4px}.dial__hd{margin-bottom:4px}.dials__foot{display:none}
+ .meta{font-size:12px}}
+</style></head><body>
+<div class="top"><button class="back" id="back" title="Back (Esc)">← Back<kbd>esc</kbd></button><nav class="trail" id="trail" aria-label="Focus history" hidden></nav></div>
+<div class="stage">
+ <main class="hero"><div class="hero__img" id="hero"></div><p class="meta" id="meta"></p></main>
+ <section class="dials" aria-label="Variations, one property at a time">
+  <div class="dial" id="d-size"></div>
+  <div class="dial" id="d-shade"></div>
+  <p class="dials__foot">Each row changes one thing and keeps the rest. Click any step to focus it.</p>
+ </section>
+</div>
+<nav class="bar"><button class="on">Canvas</button><button class="">Table</button></nav>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)),r2=v=>Math.round(v*100)/100;
+const SIZE=[.3,.95],SHADE=[.1,.9];
+function rnd(s,k){let h=Math.imul(s|0,374761393)+Math.imul(k,668265263);h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return(h>>>0)/4294967296}
+function make(seed){return{seed,size:r2(.35+rnd(seed,1)*.55),shade:r2(.15+rnd(seed,2)*.7),score:1+Math.floor(rnd(seed,3)*5),
+ created:new Date(Date.UTC(2026,9,1+Math.floor(rnd(seed,4)*11),Math.floor(rnd(seed,5)*24),Math.floor(rnd(seed,6)*60)))}}
+/* a nearby variation of o: new seed, size/shade nudged by ds/dl */
+function vary(o,ds,dl,k){const v=make(100000+Math.floor(rnd(o.seed,50+k)*900000));
+ v.size=r2(clamp(o.size+ds,SIZE[0],SIZE[1]));v.shade=r2(clamp(o.shade+dl,SHADE[0],SHADE[1]));
+ v.created=new Date(o.created.getTime()+(k+1)*97e3);return v}
+const lum=o=>(88-72*o.shade).toFixed(1);
+function tile(o,cls){return '<div class="frame'+(cls?' '+cls:'')+'"><div class="sq" style="--s:'+o.size+';--l:'+lum(o)+'%"></div></div>'}
+const fmtDate=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC'});
+const f2=v=>v.toFixed(2).replace(/^0/,'');
+const stars=n=>'<span class="stars" aria-label="'+n+' of 5">'+'★'.repeat(n)+'<span>'+'★'.repeat(5-n)+'</span></span>';
+function delta(v){const r=r2(v);return r?'<span class="d">'+(r>0?'+':'−')+f2(Math.abs(r))+'</span>':'<span class="d d-0">±0</span>'}
+let cur=make(482913),trail=[],alts=[];
+function focusOn(o){if(!o||o===cur)return;trail.push(cur);cur=o;render()}
+function jumpTo(i){cur=trail[i];trail=trail.slice(0,i);render()}
+function renderTrail(){const el=$('#trail'),N=5;el.hidden=!trail.length;if(!trail.length)return;
+ const from=Math.max(0,trail.length-N);let h=from?'<span class="trail__more" title="'+from+' earlier">+'+from+'</span>':'';
+ for(let i=from;i<trail.length;i++)h+='<button class="trail__crumb" data-j="'+i+'" title="Back to #'+trail[i].seed+'">'+tile(trail[i])+'</button><span class="trail__sep">›</span>';
+ el.innerHTML=h+'<span class="trail__crumb trail__crumb--cur" title="#'+cur.seed+' (current)">'+tile(cur)+'</span>';el.scrollLeft=1e4}
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1500)}
+const leave=()=>toast('Back to Canvas');
+$('#back').onclick=leave;
+document.querySelectorAll('.bar button').forEach(b=>b.onclick=()=>toast('Back to '+b.textContent));
+addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();leave()}});
+document.addEventListener('click',e=>{const j=e.target.closest('[data-j]');if(j)return jumpTo(+j.dataset.j);
+ const k=e.target.closest('[data-k]');if(k&&!k.disabled)focusOn(alts[+k.dataset.k])});
+/* rows that vary one property at a time; current value sits in the middle where possible */
+const DIALS=[{key:'size',name:'Size',note:'smaller → bigger',step:.1,range:SIZE},{key:'shade',name:'Shade',note:'lighter → darker',step:.15,range:SHADE}];
+function steps(o,d){const v=o[d.key],[a,b]=d.range,ok=i=>{const x=r2(v+i*d.step);return x>=a&&x<=b};
+ let lo=-2;while(lo<0&&!ok(lo))lo++;while(lo>-4&&!ok(lo+4)&&ok(lo-1))lo--;
+ const r=[];for(let i=lo;i<lo+5;i++)r.push(ok(i)?i:null);return r}
+function render(){alts=[];
+ $('#hero').innerHTML=tile(cur,'pop');
+ $('#meta').innerHTML='<span class="mono"><b>#'+cur.seed+'</b></span><span class="mono">size '+f2(cur.size)+'</span><span class="mono">shade '+f2(cur.shade)+'</span>'+stars(cur.score)+'<span>'+fmtDate(cur.created)+'</span>';
+ DIALS.forEach((d,di)=>{const [a,b]=d.range;let h='';
+  steps(cur,d).forEach((i,n)=>{
+   if(i===null){h+='<div class="step step--none"></div>';return}
+   if(i===0){h+='<div class="step step--cur" title="Current">'+tile(cur)+'<span class="step__v mono">'+f2(cur[d.key])+'</span></div>';return}
+   const v=vary(cur,d.key==='size'?i*d.step:0,d.key==='shade'?i*d.step:0,di*10+i+5);
+   h+='<button class="step step--alt" data-k="'+alts.length+'" title="#'+v.seed+' · '+d.key+' '+f2(v[d.key])+'">'+tile(v)+'<span class="step__v mono">'+f2(v[d.key])+'</span></button>';alts.push(v)});
+  $('#d-'+d.key).innerHTML='<div class="dial__hd"><span class="dial__name">'+d.name+'</span><span class="dial__note">'+d.note+'</span></div><div class="dial__row">'+h+'</div>'+
+   '<div class="track mono" title="Where this output sits in the full '+d.key+' range"><span>'+f2(a)+'</span><span class="track__bar"><i style="left:'+((cur[d.key]-a)/(b-a)*100).toFixed(1)+'%"></i></span><span>'+f2(b)+'</span></div>'});
+ renderTrail()}
+render();
+</script></body></html>

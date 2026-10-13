@@ -1,0 +1,97 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#f4f4f2;--fg:#1a1a1a;--muted:#8a8a86;--sq:#9a9a96;--surface:#fff;--line:#e2e2de;--accent:#1a1a1a;--on-accent:#fff;--hi:#2f6fed}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1b1b;--fg:#e5e5e5;--muted:#7b7b78;--sq:#8a8a86;--surface:#262625;--line:#333331;--accent:#e5e5e5;--on-accent:#1b1b1b;--hi:#6f9bff}}
+:root[data-theme=dark],.dark{--bg:#1b1b1b;--fg:#e5e5e5;--muted:#7b7b78;--sq:#8a8a86;--surface:#262625;--line:#333331;--accent:#e5e5e5;--on-accent:#1b1b1b;--hi:#6f9bff}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:13px/1.35 system-ui,-apple-system,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.out{background:var(--sq);border-radius:2px}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px}
+.bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:50}
+.bar button{padding:7px 15px;border-radius:999px;color:var(--muted)}
+.bar button.on{background:var(--accent);color:var(--on-accent)}
+.hint{position:fixed;top:14px;left:16px;color:var(--muted);font-size:12px;z-index:50}
+.toast{position:fixed;left:50%;bottom:78px;transform:translate(-50%,6px);background:var(--accent);color:var(--on-accent);padding:7px 12px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;z-index:60;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* A · Spreadsheet */
+.wrap{position:absolute;inset:0;overflow:auto;padding:0 24px 104px;scroll-padding:44px 0 104px}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:560px}
+th{position:sticky;top:0;z-index:2;background:var(--bg);text-align:left;font-weight:500;color:var(--muted);padding:0;border-bottom:1px solid var(--line);white-space:nowrap}
+th button{display:flex;align-items:center;gap:4px;width:100%;padding:20px 12px 8px;color:inherit;text-align:inherit}
+th.num button{justify-content:flex-end}
+th button:hover,th[aria-sort] button{color:var(--fg)}
+th button:focus-visible{outline:2px solid var(--hi);outline-offset:-2px;border-radius:4px}
+.arr{display:inline-block;width:8px;font-size:9px;opacity:0}
+th button:hover .arr{opacity:.4}
+th[aria-sort] .arr{opacity:1}
+td{padding:6px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface)}
+tbody tr:focus-visible{outline:none}
+tbody tr:focus-visible td{background:var(--surface);box-shadow:inset 0 1px var(--hi),inset 0 -1px var(--hi)}
+tbody tr.sel td{background:color-mix(in srgb,var(--hi) 12%,transparent)}
+tbody tr.sel td:first-child{box-shadow:inset 2px 0 var(--hi)}
+.c-thumb{width:56px;padding-left:8px}
+.thumb{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+tr:hover .thumb{background:var(--bg)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.meter{display:inline-block;width:40px;height:4px;border-radius:2px;background:var(--line);vertical-align:middle;margin-left:8px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--muted)}
+.dots{letter-spacing:1px;font-size:10px}.dots s{text-decoration:none;opacity:.22}
+.open{color:var(--muted);opacity:0;font-size:12px}
+tr:hover .open,tr.sel .open,tr:focus-visible .open{opacity:1}
+@media(max-width:640px){
+ .wrap{padding:0 0 104px}
+ th button{padding:14px 8px 8px}td{padding:6px 8px}
+ .c-thumb{padding-left:16px;position:sticky;left:0;z-index:1;background:var(--bg)}
+ th.c-thumb{z-index:3}
+ .meter{display:none}.c-open{display:none}
+ table{min-width:0}
+ .c-thumb{width:48px;padding-left:12px}.thumb{width:32px;height:32px}
+ th button{padding:14px 6px 8px}td{padding:6px}
+ .c-date .tm{display:block;color:var(--muted);font-size:11px}
+ .dots{font-size:8px;letter-spacing:0}
+}
+</style></head><body>
+<div class="wrap" id="wrap"><table><thead><tr><th class="c-thumb"></th><th data-k="seed"><button>Seed<span class="arr"></span></button></th><th data-k="size" class="num"><button>Size<span class="arr"></span></button></th><th data-k="shade" class="num"><button>Shade<span class="arr"></span></button></th><th data-k="score" class="num"><button>Score<span class="arr"></span></button></th><th data-k="created"><button>Created<span class="arr"></span></button></th><th class="c-open"></th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="toast" id="t" role="status"></div>
+<nav class="bar"><button class="">Canvas</button><button class="on">Table</button></nav>
+<script>
+// note: gen.py's hash only ever returns values in [0,0.5) (signed shifts), so scores never pass 3; this version mixes fully
+function hash(x,y,s){let h=((s||0)*2654435761+x*374761393+y*668265263)|0;h=Math.imul(h^(h>>>13),1274126177);h=Math.imul(h^(h>>>16),2246822519);return((h^(h>>>15))>>>0)/4294967296}
+function out(x,y){const seed=Math.floor(hash(x,y,7)*1e6);return{id:x+','+y,seed,size:.55+hash(x,y,1)*.35,shade:.45+hash(x,y,2)*.55,
+ created:new Date(Date.UTC(2026,9,1+Math.floor(hash(x,y,3)*11),Math.floor(hash(x,y,4)*24),Math.floor(hash(x,y,5)*60))),score:Math.floor(hash(x,y,6)*5)+1}}
+function sq(o,scale){scale=scale||1;return '<div class="out" style="width:'+(o.size*100*scale)+'%;height:'+(o.size*100*scale)+'%;opacity:'+o.shade+'"></div>'}
+function fmtDate(d){return d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC'})}
+const T=document.getElementById('t');let tt;
+function toast(o){T.textContent='Opening #'+o.seed+' in Focus →';T.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>T.classList.remove('show'),1400)}
+
+const rows=[];for(let i=0;i<60;i++)rows.push(out(i,i*7+3));
+let key='created',dir=-1,sel=null;
+const defDir={seed:1,size:-1,shade:-1,score:-1,created:-1};
+function draw(){
+ rows.sort((a,b)=>((a[key]>b[key])-(a[key]<b[key]))*dir||a.seed-b.seed);
+ document.querySelectorAll('th[data-k]').forEach(th=>{const on=th.dataset.k===key;
+  if(on)th.setAttribute('aria-sort',dir>0?'ascending':'descending');else th.removeAttribute('aria-sort');
+  th.querySelector('.arr').textContent=on?(dir>0?'▲':'▼'):'▼'});
+ document.getElementById('tb').innerHTML=rows.map(o=>'<tr tabindex="0" data-id="'+o.id+'"'+(o.id===sel?' class="sel"':'')+'>'+
+  '<td class="c-thumb"><div class="thumb">'+sq(o)+'</div></td>'+
+  '<td class="mono">#'+o.seed+'</td>'+
+  '<td class="num mono">'+o.size.toFixed(2)+'</td>'+
+  '<td class="num mono">'+o.shade.toFixed(2)+'<span class="meter"><i style="width:'+(o.shade*100)+'%"></i></span></td>'+
+  '<td class="num"><span class="dots" aria-label="'+o.score+' of 5">'+'●'.repeat(o.score)+'<s>'+'●'.repeat(5-o.score)+'</s></span></td>'+
+  '<td class="c-date">'+o.created.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})+' <span class="tm">'+o.created.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'UTC'})+'</span></td>'+
+  '<td class="c-open"><span class="open">Open →</span></td></tr>').join('')}
+document.querySelectorAll('th[data-k] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.k;if(key===k)dir*=-1;else{key=k;dir=defDir[k]}draw()});
+const tb=document.getElementById('tb');
+function open(tr){if(!tr)return;sel=tr.dataset.id;tb.querySelectorAll('tr.sel').forEach(r=>r.classList.remove('sel'));tr.classList.add('sel');toast(rows.find(o=>o.id===sel))}
+tb.onclick=e=>open(e.target.closest('tr'));
+tb.onkeydown=e=>{const tr=e.target.closest('tr');if(!tr)return;
+ if(e.key==='Enter'||e.key===' '){e.preventDefault();open(tr)}
+ else if(e.key==='ArrowDown'&&tr.nextElementSibling){e.preventDefault();tr.nextElementSibling.focus()}
+ else if(e.key==='ArrowUp'&&tr.previousElementSibling){e.preventDefault();tr.previousElementSibling.focus()}};
+draw();
+</script></body></html>

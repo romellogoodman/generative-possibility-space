@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Floating Pill</title>
+<style>
+:root {
+  --color-text: #e5e5e5;
+  --color-text-light: #7b7b78;
+  --color-bg: #1b1b1b;
+  --color-surface: #262625;
+  --color-line: #333331;
+  --color-frame: #111111;
+  --color-highlight: #6f9bff;
+  --bar-bg: rgb(38 38 37 / 88%);
+  --bar-shadow: 0 8px 28px rgb(0 0 0 / 35%), 0 0 0 1px var(--color-line);
+  --output-light: 82%;
+  --output-range: 56%;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --ease: cubic-bezier(.3, .8, .2, 1);
+  --morph: 380ms;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-text: #1a1a1a;
+    --color-text-light: #6f6f6b;
+    --color-bg: #f4f4f2;
+    --color-surface: #ffffff;
+    --color-line: #e2e2de;
+    --color-frame: #fcfcfb;
+    --color-highlight: #2f6fed;
+    --bar-bg: rgb(255 255 255 / 90%);
+    --bar-shadow: 0 8px 28px rgb(0 0 0 / 10%), 0 0 0 1px var(--color-line);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --color-text: #1a1a1a;
+  --color-text-light: #6f6f6b;
+  --color-bg: #f4f4f2;
+  --color-surface: #ffffff;
+  --color-line: #e2e2de;
+  --color-frame: #fcfcfb;
+  --color-highlight: #2f6fed;
+  --bar-bg: rgb(255 255 255 / 90%);
+  --bar-shadow: 0 8px 28px rgb(0 0 0 / 10%), 0 0 0 1px var(--color-line);
+  color-scheme: light;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: 13px/1.35 system-ui, sans-serif;
+  overflow: hidden;
+}
+button {
+  font: inherit; color: inherit; background: none; border: 0; cursor: pointer;
+  text-align: inherit; padding: 0;
+}
+button:focus-visible { outline: 2px solid var(--color-highlight); outline-offset: -2px; }
+.mono { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.output {
+  background: hsl(0 0% calc(var(--output-light) - var(--shade, .5) * var(--output-range)));
+  border-radius: 2px;
+}
+.score { letter-spacing: 1px; font-size: 9px; }
+.score__empty { opacity: .25; }
+
+/* ---------- The bar ---------- */
+.bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  max-width: calc(100vw - 32px);
+  border-radius: 999px;
+  background: var(--bar-bg);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: var(--bar-shadow);
+}
+.bar__stage {
+  position: relative;
+  height: 32px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.bar--ready .bar__stage { transition: width var(--morph) var(--ease); }
+.bar__stage--ctx { margin-left: 1px; }
+.bar__stage--ctx::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px;
+  background: var(--color-line); z-index: 2;
+}
+.bar__panel {
+  position: absolute;
+  top: 0; left: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  transition: opacity calc(var(--morph) * .7) ease, filter calc(var(--morph) * .7) ease, transform var(--morph) var(--ease);
+}
+.bar__stage--ctx .bar__panel { padding-left: 5px; }
+.bar__panel.is-entering { opacity: 0; filter: blur(3px); transform: translateY(5px); }
+.bar__panel.is-leaving  { opacity: 0; filter: blur(3px); transform: translateY(-5px); pointer-events: none; }
+
+/* segmented control with sliding thumb */
+.seg { position: relative; display: inline-flex; height: 32px; padding: 0; border-radius: 999px; }
+.seg__thumb {
+  position: absolute; top: 0; height: 32px; border-radius: 999px;
+  background: var(--color-text);
+  transition: left 260ms var(--ease), width 260ms var(--ease);
+}
+.seg__thumb.no-anim { transition: none; }
+.seg__opt {
+  position: relative; z-index: 1;
+  height: 32px; padding: 0 13px; border-radius: 999px;
+  color: var(--color-text-light);
+  transition: color 200ms;
+}
+.seg__opt:hover { color: var(--color-text); }
+.seg__opt[aria-pressed="true"] { color: var(--color-bg); }
+/* secondary choices inside the context segment are quieter than the mode switch */
+.bar__stage--ctx .seg__thumb { background: var(--color-line); }
+.bar__stage--ctx .seg__opt[aria-pressed="true"] { color: var(--color-text); }
+
+/* plain pill buttons inside the bar */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 11px; border-radius: 999px;
+  color: var(--color-text);
+}
+.chip:hover, .chip[aria-expanded="true"] { background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); }
+.chip__label { color: var(--color-text-light); }
+.chip__caret { width: 8px; height: 8px; opacity: .6; flex: none; }
+.chip--icon { width: 32px; padding: 0; justify-content: center; }
+.chip--back { padding: 0 13px 0 10px; gap: 6px; background: var(--color-text); color: var(--color-bg); }
+.chip--back:hover { background: var(--color-text); box-shadow: none; opacity: .88; }
+.chip--back svg { width: 14px; height: 14px; }
+svg.ico { width: 14px; height: 14px; flex: none; opacity: .8; }
+
+.trail { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+.trail__item {
+  width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center;
+  background: var(--color-frame); box-shadow: inset 0 0 0 1px var(--color-line);
+  animation: pop .3s var(--ease) both;
+}
+.trail__item:hover { box-shadow: inset 0 0 0 1px var(--color-highlight); }
+.trail__item .output { border-radius: 1px; }
+.trail__sep { color: var(--color-text-light); font-size: 10px; opacity: .6; }
+.trail__more { color: var(--color-text-light); padding: 0 2px; }
+.trail__current {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 4px;
+}
+.trail__current .trail__item { box-shadow: inset 0 0 0 1.5px var(--color-text); }
+@keyframes pop { from { opacity: 0; transform: scale(.6); } }
+
+/* dropdown menu */
+.menu {
+  position: fixed; z-index: 60; min-width: 168px; padding: 4px;
+  background: var(--color-surface); border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%), 0 0 0 1px var(--color-line);
+  transform-origin: top center;
+  animation: menu-in 160ms var(--ease);
+}
+.menu[hidden] { display: none; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
+.menu__title { padding: 6px 10px 4px; color: var(--color-text-light); font-size: 11px; }
+.menu__item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border-radius: 8px;
+}
+.menu__item:hover, .menu__item:focus-visible { background: var(--color-line); outline: none; }
+.menu__check { width: 12px; color: var(--color-highlight); }
+.menu__hint { margin-left: auto; color: var(--color-text-light); }
+.menu__rule { height: 1px; margin: 4px 6px; background: var(--color-line); }
+
+/* ---------- Stand-in views ---------- */
+.view { position: absolute; inset: 0; animation: fade .35s ease both; }
+@keyframes fade { from { opacity: 0; } }
+
+/* canvas */
+.canvas { overflow: hidden; cursor: grab; touch-action: none; }
+.canvas:active { cursor: grabbing; }
+.canvas__world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.canvas__cell { position: absolute; display: grid; place-items: center; }
+.canvas__cell .output { cursor: pointer; transition: width .3s var(--ease), height .3s var(--ease); }
+.canvas__cell .output:hover { outline: 2px solid var(--color-highlight); outline-offset: 3px; }
+.canvas--contact .canvas__cell { box-shadow: inset 0 0 0 .5px var(--color-line); }
+.canvas__caption {
+  position: absolute; left: 8px; bottom: 6px; font: 9px/1 var(--font-mono); color: var(--color-text-light);
+}
+
+/* table */
+.table { overflow: auto; padding: 68px 24px 40px; }
+.table__inner { max-width: 880px; margin: 0 auto; }
+.sheet { width: 100%; border-collapse: collapse; }
+.sheet th { text-align: left; color: var(--color-text-light); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+.sheet th.is-sorted { color: var(--color-text); }
+.sheet td { padding: 6px 10px; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+.sheet tr.row { cursor: pointer; }
+.sheet tr.row:hover td { background: var(--color-surface); }
+.num, .sheet .num { text-align: right; }
+.thumb { width: 36px; height: 36px; display: grid; place-items: center; background: var(--color-frame); box-shadow: inset 0 0 0 1px var(--color-line); border-radius: 4px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 8px; padding: 10px; cursor: pointer; }
+.card:hover { border-color: var(--color-highlight); }
+.card__img { aspect-ratio: 1; display: grid; place-items: center; background: var(--color-frame); border-radius: 4px; margin-bottom: 8px; }
+.card__meta { display: flex; justify-content: space-between; color: var(--color-text-light); }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.split__list .row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.split__list .row:hover, .split__list .row.is-on { background: var(--color-surface); }
+.split__preview { position: sticky; top: 0; aspect-ratio: 1; display: grid; place-items: center; background: var(--color-frame); box-shadow: inset 0 0 0 1px var(--color-line); border-radius: 6px; }
+.group { margin-bottom: 16px; }
+.group__head { display: flex; justify-content: space-between; padding: 8px 2px; border-bottom: 1px solid var(--color-line); color: var(--color-text-light); width: 100%; }
+.group__head b { color: var(--color-text); font-weight: 600; }
+.group__items { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+.group__items .thumb { width: 56px; height: 56px; cursor: pointer; }
+.group__items .thumb:hover { box-shadow: inset 0 0 0 1px var(--color-highlight); }
+.group.is-collapsed .group__items { display: none; }
+.dim { color: var(--color-text-light); }
+
+/* focus */
+.focus { overflow: auto; padding: 68px 24px 32px; display: flex; justify-content: center; }
+.focus__inner { width: min(100%, 720px); }
+.frame { display: grid; place-items: center; aspect-ratio: 1; background: var(--color-frame); box-shadow: inset 0 0 0 1px var(--color-line); border-radius: 6px; }
+.frame--hero { width: min(100%, 52vh); margin: 0 auto; animation: pop .35s var(--ease) both; }
+.frame--alt { cursor: pointer; }
+.frame--alt:hover { box-shadow: inset 0 0 0 1px var(--color-highlight); }
+.meta { display: flex; gap: 14px; justify-content: center; margin: 10px 0 16px; color: var(--color-text-light); flex-wrap: wrap; }
+.meta b { color: var(--color-text); }
+.strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.compass { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(100%, 60vh); margin: 0 auto; }
+.compass .frame--hero { width: 100%; }
+.inspector { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.inspector .frame--hero { width: 100%; }
+.props { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 16px; }
+.props dt { color: var(--color-text-light); }
+.props dd { margin: 0; }
+.inspector__alts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dials { display: grid; gap: 12px; max-width: 420px; margin: 0 auto; }
+.dial { display: grid; grid-template-columns: 48px 1fr 40px; align-items: center; gap: 10px; }
+.dial input { width: 100%; accent-color: var(--color-text); }
+.dials__alts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+@media (max-width: 560px) {
+  .table, .focus { padding-left: 16px; padding-right: 16px; }
+  .wide-only { display: none; }
+  .seg__opt { padding: 0 11px; }
+  .chip { padding: 0 9px; }
+  .split, .inspector { grid-template-columns: 1fr; }
+  .strip { grid-template-columns: repeat(3, 1fr); }
+  .sheet .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="bar" id="bar" role="toolbar" aria-label="GPS">
+  <div class="bar__stage bar__stage--mode" id="stageMode"></div>
+  <div class="bar__stage bar__stage--ctx" id="stageCtx"></div>
+</div>
+<div class="menu" id="menu" role="menu" hidden></div>
+<main id="view"></main>
+
+<script>
+(() => {
+  // ---------- data ----------
+  const hash = (a, b = 0) => {
+    let h = Math.imul(a ^ 0x9e3779b9, 2654435761) ^ Math.imul(b + 7, 1597334677);
+    h = Math.imul(h ^ (h >>> 15), 2246822519);
+    h ^= h >>> 13;
+    return ((h >>> 0) % 100000) / 100000;
+  };
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const BASE = Date.UTC(2026, 9, 12, 18, 0);
+  const make = (n) => ({
+    id: n,
+    seed: 1000 + Math.floor(hash(n, 1) * 8999),
+    size: round2(0.42 + hash(n, 2) * 0.5),
+    shade: round2(0.4 + hash(n, 3) * 0.6),
+    score: 1 + Math.floor(hash(n, 4) * 5),
+    created: new Date(BASE - Math.floor(hash(n, 5) * 6 * 86400000)),
+  });
+  const vary = (o, k) => {
+    const id = 100000 + Math.floor(hash(o.id, k + 11) * 900000);
+    const a = (k / 6) * Math.PI * 2 + hash(o.id, 9);
+    return {
+      ...make(id),
+      size: round2(clamp(o.size + Math.cos(a) * 0.12, 0.3, 0.95)),
+      shade: round2(clamp(o.shade + Math.sin(a) * 0.18, 0.3, 1)),
+    };
+  };
+  const OUTPUTS = Array.from({ length: 48 }, (_, i) => make(i + 1));
+  const fmtDay = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const fmtTime = (d) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  const score = (v) => `<span class="score" aria-label="${v} of 5">${"●".repeat(v)}<span class="score__empty">${"●".repeat(5 - v)}</span></span>`;
+  const out = (o, scale = 1) => `<div class="output" style="width:${o.size * 100 * scale}%;height:${o.size * 100 * scale}%;--shade:${o.shade}"></div>`;
+
+  // ---------- state ----------
+  const S = {
+    mode: "canvas",
+    canvasLayout: "staggered",
+    tableLayout: "spreadsheet",
+    sort: { key: "score", dir: -1 },
+    groupBy: "day",
+    collapsed: false,
+    focus: null,
+    trail: [],
+    focusLayout: "strip",
+    cam: { x: 0, y: 0, z: 1 },
+    hover: null,
+  };
+  const SORTS = { seed: "Seed", size: "Size", shade: "Shade", score: "Score", created: "Created" };
+  const TABLE_LAYOUTS = { spreadsheet: "Spreadsheet", cards: "Cards", split: "Split", grouped: "Grouped" };
+  const FOCUS_LAYOUTS = { strip: "Strip", compass: "Compass", inspector: "Inspector", dials: "Dials" };
+  const GROUPS = { day: "Day", score: "Score", size: "Size" };
+  const narrow = () => innerWidth < 560;
+
+  // ---------- icons ----------
+  const caret = `<svg class="chip__caret" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 3l2.5 2.5L6.5 3"/></svg>`;
+  const ICON = {
+    spreadsheet: `<path d="M2 3.5h10M2 7h10M2 10.5h10"/>`,
+    cards: `<rect x="2" y="2" width="4" height="4" rx=".6"/><rect x="8" y="2" width="4" height="4" rx=".6"/><rect x="2" y="8" width="4" height="4" rx=".6"/><rect x="8" y="8" width="4" height="4" rx=".6"/>`,
+    split: `<rect x="2" y="2.5" width="10" height="9" rx="1"/><path d="M6.5 2.5v9"/>`,
+    grouped: `<path d="M2 3h6M3.5 5.5h8.5M2 8.5h6M3.5 11h8.5"/>`,
+    strip: `<rect x="3" y="1.5" width="8" height="7" rx=".8"/><path d="M2 11.5h2M6 11.5h2M10 11.5h2"/>`,
+    compass: `<rect x="5" y="5" width="4" height="4" rx=".5"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2"/>`,
+    inspector: `<rect x="1.5" y="3" width="6.5" height="8" rx=".8"/><path d="M10 4.5h2.5M10 7h2.5M10 9.5h2"/>`,
+    dials: `<path d="M2 4h10M2 10h10"/><circle cx="5" cy="4" r="1.4" fill="currentColor"/><circle cx="9" cy="10" r="1.4" fill="currentColor"/>`,
+    sort: `<path d="M4.5 2.5v9M2.5 9.5l2 2 2-2M9.5 11.5v-9M7.5 4.5l2-2 2 2"/>`,
+    more: `<circle cx="3" cy="7" r="1.1" fill="currentColor"/><circle cx="7" cy="7" r="1.1" fill="currentColor"/><circle cx="11" cy="7" r="1.1" fill="currentColor"/>`,
+  };
+  const ico = (k) => `<svg class="ico" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">${ICON[k]}</svg>`;
+
+  // ---------- bar ----------
+  const bar = document.getElementById("bar");
+  const stageMode = document.getElementById("stageMode");
+  const stageCtx = document.getElementById("stageCtx");
+
+  const seg = (name, opts, value, label) =>
+    `<div class="seg" role="group" aria-label="${label}" data-seg="${name}"><span class="seg__thumb"></span>` +
+    Object.entries(opts).map(([k, v]) => `<button class="seg__opt" data-act="${name}" data-val="${k}" aria-pressed="${k === value}">${v}</button>`).join("") +
+    `</div>`;
+  const chip = (act, html, label) => `<button class="chip" data-menu="${act}" aria-haspopup="menu" aria-expanded="false" aria-label="${label}">${html}${caret}</button>`;
+
+  function modeContent() {
+    if (S.focus) {
+      const from = S.mode === "canvas" ? "Canvas" : "Table";
+      return ["back", `<button class="chip chip--back" data-act="back" aria-label="Back to ${from} (Esc)" title="Back (Esc)">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11.5 7h-9M6 3L2 7l4 4"/></svg><span class="wide-only">${from}</span></button>`];
+    }
+    return ["switch", seg("mode", { canvas: "Canvas", table: "Table" }, S.mode, "Mode")];
+  }
+
+  function ctxContent() {
+    if (S.focus) {
+      const max = narrow() ? 2 : 5;
+      const shown = S.trail.slice(-max);
+      const hidden = S.trail.length - shown.length;
+      const items = shown.map((o) => {
+        const i = S.trail.indexOf(o);
+        return `<button class="trail__item" data-act="trail" data-val="${i}" title="#${o.seed}" aria-label="Back to #${o.seed}">${out(o, 0.8)}</button><span class="trail__sep">›</span>`;
+      }).join("");
+      const f = S.focus;
+      return ["focus",
+        `<div class="trail">${hidden ? `<span class="trail__more mono" title="${hidden} earlier">+${hidden}</span>` : ""}${items}
+          <span class="trail__current"><span class="trail__item">${out(f, 0.8)}</span><span class="mono">#${f.seed}</span></span></div>` +
+        chip("focusLayout", `${ico(S.focusLayout)}<span class="wide-only">${FOCUS_LAYOUTS[S.focusLayout]}</span>`, `Layout: ${FOCUS_LAYOUTS[S.focusLayout]}`)];
+    }
+    if (S.mode === "canvas") {
+      return ["canvas",
+        seg("canvasLayout", { staggered: "Staggered", contact: narrow() ? "Contact" : "Contact sheet" }, S.canvasLayout, "Layout") +
+        `<button class="chip" data-act="zoomReset" title="Zoom · click to reset"><span class="mono">${Math.round(S.cam.z * 100)}%</span></button>`];
+    }
+    const layoutChip = chip("tableLayout", `${ico(S.tableLayout)}<span class="wide-only">${TABLE_LAYOUTS[S.tableLayout]}</span>`, `Layout: ${TABLE_LAYOUTS[S.tableLayout]}`);
+    if (S.tableLayout === "grouped") {
+      return ["table-group", layoutChip +
+        chip("groupBy", `<span class="chip__label">by</span>${GROUPS[S.groupBy]}`, `Group by ${GROUPS[S.groupBy]}`) +
+        `<button class="chip chip--icon" data-menu="more" aria-haspopup="menu" aria-expanded="false" aria-label="More">${ico("more")}</button>`];
+    }
+    return ["table-sort", layoutChip +
+      chip("sort", `${ico("sort")}<span>${SORTS[S.sort.key]}</span><span class="dim">${S.sort.dir < 0 ? "↓" : "↑"}</span>`, `Sort by ${SORTS[S.sort.key]}`)];
+  }
+
+  // Remember thumb positions so an in-place re-render still slides
+  function placeThumbs(root, prev = {}) {
+    root.querySelectorAll(".seg").forEach((s) => {
+      const thumb = s.querySelector(".seg__thumb");
+      const on = s.querySelector('[aria-pressed="true"]');
+      if (!on) { thumb.style.width = "0"; return; }
+      const p = prev[s.dataset.seg];
+      thumb.classList.add("no-anim");
+      if (p) { thumb.style.left = p.left; thumb.style.width = p.width; }
+      else { thumb.style.left = on.offsetLeft + "px"; thumb.style.width = on.offsetWidth + "px"; }
+      thumb.offsetWidth;
+      thumb.classList.remove("no-anim");
+      thumb.style.left = on.offsetLeft + "px";
+      thumb.style.width = on.offsetWidth + "px";
+    });
+  }
+  function readThumbs(root) {
+    const m = {};
+    root?.querySelectorAll(".seg").forEach((s) => {
+      const t = s.querySelector(".seg__thumb");
+      m[s.dataset.seg] = { left: t.style.left, width: t.style.width };
+    });
+    return m;
+  }
+
+  function morph(stage, [key, html]) {
+    const cur = stage.querySelector(".bar__panel:not(.is-leaving)");
+    if (cur && cur.dataset.key === key) {
+      if (cur.dataset.html === html) return;
+      const prev = readThumbs(cur);
+      cur.innerHTML = html;
+      cur.dataset.html = html;
+      placeThumbs(cur, prev);
+      stage.style.width = cur.offsetWidth + "px";
+      return;
+    }
+    const p = document.createElement("div");
+    p.className = "bar__panel is-entering";
+    p.dataset.key = key;
+    p.dataset.html = html;
+    p.innerHTML = html;
+    stage.appendChild(p);
+    placeThumbs(p);
+    if (cur) {
+      cur.classList.add("is-leaving");
+      cur.inert = true;
+      setTimeout(() => cur.remove(), 420);
+    }
+    stage.style.width = p.offsetWidth + "px";
+    p.offsetWidth;
+    requestAnimationFrame(() => p.classList.remove("is-entering"));
+  }
+
+  function renderBar() {
+    morph(stageMode, modeContent());
+    morph(stageCtx, ctxContent());
+  }
+
+  // ---------- menus ----------
+  const menu = document.getElementById("menu");
+  let menuFor = null;
+  function menuItems(kind) {
+    const pick = (opts, cur, extra = {}) =>
+      Object.entries(opts).map(([k, v]) =>
+        `<button class="menu__item" role="menuitemradio" aria-checked="${k === cur}" data-pick="${kind}" data-val="${k}"><span class="menu__check">${k === cur ? "✓" : ""}</span>${ICON[k] ? ico(k) : ""}${v}${extra[k] ? `<span class="menu__hint">${extra[k]}</span>` : ""}</button>`).join("");
+    if (kind === "tableLayout") return `<div class="menu__title">Table layout</div>` + pick(TABLE_LAYOUTS, S.tableLayout);
+    if (kind === "focusLayout") return `<div class="menu__title">Focus layout</div>` + pick(FOCUS_LAYOUTS, S.focusLayout, { strip: "1", compass: "2", inspector: "3", dials: "4" });
+    if (kind === "groupBy") return `<div class="menu__title">Group by</div>` + pick(GROUPS, S.groupBy);
+    if (kind === "sort") {
+      const arrows = { [S.sort.key]: S.sort.dir < 0 ? "↓" : "↑" };
+      return `<div class="menu__title">Sort by · pick again to flip</div>` + pick(SORTS, S.sort.key, arrows);
+    }
+    if (kind === "more") return `<button class="menu__item" data-pick="collapse"><span class="menu__check"></span>${S.collapsed ? "Expand all" : "Collapse all"}</button>`;
+  }
+  function openMenu(btn) {
+    const kind = btn.dataset.menu;
+    if (menuFor === btn) return closeMenu();
+    closeMenu();
+    menuFor = btn;
+    btn.setAttribute("aria-expanded", "true");
+    menu.innerHTML = menuItems(kind);
+    menu.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const w = menu.offsetWidth;
+    menu.style.top = bar.getBoundingClientRect().bottom + 8 + "px";
+    menu.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + "px";
+    (menu.querySelector('[aria-checked="true"]') || menu.querySelector(".menu__item"))?.focus({ preventScroll: true });
+  }
+  function closeMenu() {
+    if (!menuFor) return;
+    menuFor.setAttribute("aria-expanded", "false");
+    menuFor = null;
+    menu.hidden = true;
+  }
+  menu.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pick]");
+    if (!b) return;
+    const v = b.dataset.val;
+    switch (b.dataset.pick) {
+      case "tableLayout": S.tableLayout = v; break;
+      case "focusLayout": S.focusLayout = v; break;
+      case "groupBy": S.groupBy = v; break;
+      case "sort": S.sort = S.sort.key === v ? { key: v, dir: -S.sort.dir } : { key: v, dir: v === "seed" ? 1 : -1 }; break;
+      case "collapse": S.collapsed = !S.collapsed; break;
+    }
+    closeMenu();
+    render();
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (menuFor && !menu.contains(e.target) && !menuFor.contains(e.target)) closeMenu();
+  });
+
+  bar.addEventListener("click", (e) => {
+    const m = e.target.closest("[data-menu]");
+    if (m) return openMenu(m);
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    closeMenu();
+    const v = b.dataset.val;
+    switch (b.dataset.act) {
+      case "mode": if (S.mode !== v) { S.mode = v; render(); } break;
+      case "canvasLayout": S.canvasLayout = v; render(); break;
+      case "zoomReset": S.cam = { x: 0, y: 0, z: 1 }; render(); break;
+      case "back": closeFocus(); break;
+      case "trail": { const i = +v; S.focus = S.trail[i]; S.trail = S.trail.slice(0, i); render(); break; }
+    }
+  });
+
+  // ---------- views ----------
+  const view = document.getElementById("view");
+  let viewKey = "";
+  const byId = new Map(OUTPUTS.map((o) => [o.id, o]));
+
+  function openFocus(o) {
+    if (S.focus) S.trail.push(S.focus);
+    S.focus = o;
+    closeMenu();
+    render();
+  }
+  function closeFocus() {
+    S.focus = null;
+    S.trail = [];
+    render();
+  }
+
+  function canvasHTML() {
+    const contact = S.canvasLayout === "contact";
+    const cell = contact ? 120 : 132;
+    const cols = 16, rows = 12;
+    let cells = "";
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const o = OUTPUTS[(r * cols + c) % OUTPUTS.length];
+      const x = c * cell, y = r * cell + (!contact && c % 2 ? cell / 2 : 0);
+      cells += `<div class="canvas__cell" style="left:${x}px;top:${y}px;width:${cell}px;height:${cell}px">
+        <div class="output" data-id="${o.id}" style="width:${o.size * (contact ? 70 : 62)}%;height:${o.size * (contact ? 70 : 62)}%;--shade:${o.shade}"></div>
+        ${contact ? `<span class="canvas__caption">#${o.seed} ${score(o.score)}</span>` : ""}</div>`;
+    }
+    return `<div class="view canvas ${contact ? "canvas--contact" : ""}" id="canvas"><div class="canvas__world" id="world">${cells}</div></div>`;
+  }
+  function applyCam() {
+    const w = document.getElementById("world");
+    if (w) w.style.transform = `translate(${S.cam.x - 200}px, ${S.cam.y - 120}px) scale(${S.cam.z})`;
+  }
+
+  const sorted = () => {
+    const { key, dir } = S.sort;
+    return [...OUTPUTS].sort((a, b) => (a[key] > b[key] ? 1 : a[key] < b[key] ? -1 : 0) * dir);
+  };
+  function tableHTML() {
+    const L = S.tableLayout;
+    let inner = "";
+    if (L === "spreadsheet") {
+      const th = (k, cls = "") => `<th class="${cls} ${S.sort.key === k ? "is-sorted" : ""}">${SORTS[k]}${S.sort.key === k ? (S.sort.dir < 0 ? " ↓" : " ↑") : ""}</th>`;
+      inner = `<table class="sheet"><thead><tr><th></th>${th("seed")}${th("size", "num")}${th("shade", "num hide-sm")}${th("score")}${th("created", "hide-sm")}</tr></thead><tbody>` +
+        sorted().map((o) => `<tr class="row" data-id="${o.id}"><td><div class="thumb">${out(o, 0.8)}</div></td><td class="mono">#${o.seed}</td><td class="mono num">${o.size.toFixed(2)}</td><td class="mono num hide-sm">${o.shade.toFixed(2)}</td><td>${score(o.score)}</td><td class="dim hide-sm">${fmtDay(o.created)}, ${fmtTime(o.created)}</td></tr>`).join("") +
+        `</tbody></table>`;
+    } else if (L === "cards") {
+      inner = `<div class="cards">` + sorted().map((o) => `<div class="card" data-id="${o.id}"><div class="card__img">${out(o, 0.8)}</div><div class="card__meta"><span class="mono" style="color:var(--color-text)">#${o.seed}</span>${score(o.score)}</div></div>`).join("") + `</div>`;
+    } else if (L === "split") {
+      const list = sorted();
+      const p = S.hover ? byId.get(S.hover) : list[0];
+      inner = `<div class="split"><div class="split__list">` + list.map((o) => `<div class="row ${o === p ? "is-on" : ""}" data-id="${o.id}" data-hover="${o.id}"><div class="thumb">${out(o, 0.8)}</div><span class="mono">#${o.seed}</span><span style="margin-left:auto">${score(o.score)}</span></div>`).join("") +
+        `</div><div class="split__preview" id="preview">${out(p, 0.85)}</div></div>`;
+    } else {
+      const groups = new Map();
+      const keyOf = (o) => S.groupBy === "day" ? fmtDay(o.created) : S.groupBy === "score" ? `${o.score} of 5` : o.size < 0.6 ? "Small" : o.size < 0.78 ? "Medium" : "Large";
+      const list = S.groupBy === "day" ? [...OUTPUTS].sort((a, b) => b.created - a.created) : S.groupBy === "score" ? [...OUTPUTS].sort((a, b) => b.score - a.score) : [...OUTPUTS].sort((a, b) => a.size - b.size);
+      list.forEach((o) => { const k = keyOf(o); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(o); });
+      inner = [...groups].map(([k, items]) => `<section class="group ${S.collapsed ? "is-collapsed" : ""}"><button class="group__head" data-toggle><b>${k}</b><span class="mono">${items.length}</span></button><div class="group__items">` +
+        items.map((o) => `<div class="thumb" data-id="${o.id}" title="#${o.seed}">${out(o, 0.8)}</div>`).join("") + `</div></section>`).join("");
+    }
+    return `<div class="view table" id="table"><div class="table__inner">${inner}</div></div>`;
+  }
+
+  function focusHTML() {
+    const f = S.focus;
+    const alts = Array.from({ length: 8 }, (_, k) => vary(f, k));
+    const altHTML = (o) => `<div class="frame frame--alt" data-alt="${o.id}">${out(o, 0.8)}</div>`;
+    const hero = `<div class="frame frame--hero">${out(f, 0.85)}</div>`;
+    const meta = `<div class="meta mono"><b>#${f.seed}</b><span>size ${f.size.toFixed(2)}</span><span>shade ${f.shade.toFixed(2)}</span>${score(f.score)}</div>`;
+    let body;
+    if (S.focusLayout === "strip") body = hero + meta + `<div class="strip">${alts.slice(0, 6).map(altHTML).join("")}</div>`;
+    else if (S.focusLayout === "compass") {
+      const ring = alts.slice(0, 8);
+      body = `<div class="compass">${ring.slice(0, 4).map(altHTML).join("")}${hero}${ring.slice(4).map(altHTML).join("")}</div>` + meta;
+    } else if (S.focusLayout === "inspector") {
+      body = `<div class="inspector"><div>${hero}</div><div><dl class="props"><dt>Seed</dt><dd class="mono">#${f.seed}</dd><dt>Size</dt><dd class="mono">${f.size.toFixed(2)}</dd><dt>Shade</dt><dd class="mono">${f.shade.toFixed(2)}</dd><dt>Score</dt><dd>${score(f.score)}</dd><dt>Created</dt><dd>${fmtDay(f.created)}, ${fmtTime(f.created)}</dd></dl><div class="inspector__alts">${alts.slice(0, 6).map(altHTML).join("")}</div></div></div>`;
+    } else {
+      body = hero + meta + `<div class="dials"><label class="dial"><span class="dim">Size</span><input type="range" min="30" max="95" value="${f.size * 100}" disabled><span class="mono">${f.size.toFixed(2)}</span></label><label class="dial"><span class="dim">Shade</span><input type="range" min="30" max="100" value="${f.shade * 100}" disabled><span class="mono">${f.shade.toFixed(2)}</span></label><div class="dials__alts">${alts.slice(0, 4).map(altHTML).join("")}</div></div>`;
+    }
+    return `<div class="view focus" id="focus"><div class="focus__inner">${body}</div></div>`;
+  }
+
+  let altMap = new Map();
+  function renderView() {
+    const key = S.focus ? `focus:${S.focus.id}:${S.focusLayout}` : S.mode === "canvas" ? `canvas:${S.canvasLayout}` : `table:${S.tableLayout}:${S.sort.key}:${S.sort.dir}:${S.groupBy}:${S.collapsed}`;
+    if (key === viewKey) return;
+    const sameView = viewKey.split(":")[0] === key.split(":")[0] && !key.startsWith("focus");
+    viewKey = key;
+    view.innerHTML = S.focus ? focusHTML() : S.mode === "canvas" ? canvasHTML() : tableHTML();
+    if (sameView) view.firstElementChild.style.animation = "none";
+    if (S.focus) {
+      altMap = new Map();
+      Array.from({ length: 8 }, (_, k) => vary(S.focus, k)).forEach((o) => altMap.set(String(o.id), o));
+    }
+    if (!S.focus && S.mode === "canvas") { applyCam(); bindCanvas(); }
+  }
+
+  function render() {
+    renderBar();
+    renderView();
+    applyCam();
+  }
+
+  // ---------- canvas pan / zoom ----------
+  function bindCanvas() {
+    const c = document.getElementById("canvas");
+    let drag = null, moved = 0;
+    c.addEventListener("pointerdown", (e) => {
+      drag = { x: e.clientX, y: e.clientY, cx: S.cam.x, cy: S.cam.y };
+      moved = 0;
+      c.setPointerCapture(e.pointerId);
+    });
+    c.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      moved = Math.max(moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
+      S.cam.x = drag.cx + e.clientX - drag.x;
+      S.cam.y = drag.cy + e.clientY - drag.y;
+      applyCam();
+    });
+    c.addEventListener("pointerup", (e) => {
+      if (drag && moved < 4) {
+        c.releasePointerCapture(e.pointerId);
+        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest(".output[data-id]");
+        if (el) openFocus(byId.get(+el.dataset.id));
+      }
+      drag = null;
+    });
+    c.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const z = clamp(S.cam.z * Math.exp(-e.deltaY * 0.0015), 0.4, 2.5);
+      const k = z / S.cam.z;
+      const px = e.clientX + 200, py = e.clientY + 120;
+      S.cam.x = px - (px - S.cam.x) * k;
+      S.cam.y = py - (py - S.cam.y) * k;
+      S.cam.z = z;
+      applyCam();
+      renderBar();
+    }, { passive: false });
+  }
+
+  view.addEventListener("click", (e) => {
+    const alt = e.target.closest("[data-alt]");
+    if (alt) return openFocus(altMap.get(alt.dataset.alt));
+    if (e.target.closest("[data-toggle]")) { e.target.closest(".group").classList.toggle("is-collapsed"); return; }
+    const row = e.target.closest("[data-id]");
+    if (row && !document.getElementById("canvas")) openFocus(byId.get(+row.dataset.id));
+  });
+  view.addEventListener("pointerover", (e) => {
+    const h = e.target.closest("[data-hover]");
+    if (!h || S.hover === +h.dataset.hover) return;
+    S.hover = +h.dataset.hover;
+    view.querySelectorAll(".split__list .row").forEach((r) => r.classList.toggle("is-on", r === h));
+    const p = document.getElementById("preview");
+    if (p) p.innerHTML = out(byId.get(S.hover), 0.85);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (menuFor) { const b = menuFor; closeMenu(); b.focus(); return; }
+      if (S.focus) closeFocus();
+      return;
+    }
+    if (S.focus && !menuFor && /^[1-4]$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
+      S.focusLayout = Object.keys(FOCUS_LAYOUTS)[+e.key - 1];
+      render();
+    }
+  });
+
+  let rt;
+  addEventListener("resize", () => {
+    closeMenu();
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      [stageMode, stageCtx].forEach((s) => s.querySelectorAll(".bar__panel").forEach((p) => (p.dataset.html = "")));
+      renderBar();
+    }, 80);
+  });
+
+  render();
+  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add("bar--ready")));
+})();
+</script>
+</body>
+</html>
