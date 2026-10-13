@@ -1,66 +1,36 @@
-# Project Guidelines
+# GPS — Generative possibility space
 
-This is a React.js app with SCSS styles.
+A demo of different ways to browse generative outputs. Every output is a stand-in grey square
+(seed, size, shade, score, created date) until real generators are plugged in.
 
-## File Structure
+React 19 + Vite + SCSS, no router or state library. Deployed on Vercel at gps.romellogoodman.com.
 
-- All React components should be placed in `src/App.jsx`
-- All styles should be placed in `src/App.scss`
+## Map
 
-This single-file approach is intentional for rapid prototyping. Refactor into multiple files as the prototype grows.
+Everything lives in two files on purpose (fast prototyping). Split them only when asked.
 
-## CSS/SCSS Conventions
+- `src/App.jsx`, by section comment:
+  - top: `hash` / `makeOutput` (`src/App.jsx:10`) — outputs are deterministic from their grid position
+  - Canvas mode (`src/App.jsx:124`) — infinite pan/zoom canvas, layouts Staggered and Contact sheet
+  - Table mode (`src/App.jsx:292`) — Spreadsheet, Cards, Split, Grouped
+  - Focus mode (`src/App.jsx:710`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials
+  - Top bar (`src/App.jsx:1207`) — the only chrome: one floating pill that morphs per mode
+  - App (`src/App.jsx:1508`) — owns all view state (mode, layouts, sort, camera, focus + trail) and passes it down
+- `src/App.scss` — same sections; theme tokens on `:root`, light theme via `prefers-color-scheme`
+- `.orcc/` — design record from orcc sessions (decisions, mockups); not app code
 
-- Use BEM (Block Element Modifier) naming methodology for CSS classes
-- Follow the pattern: `.block__element--modifier`
-- Use SCSS nesting with `&` for better organization
-- Leverage CSS custom properties for theming
+## Conventions
 
-### BEM Example
+- CSS classes use BEM (`block__element--modifier`) with SCSS `&` nesting.
+- Use the CSS custom properties on `:root` in `src/App.scss` for colours, spacing and bar clearances.
+- An output's grey level comes from the `--shade` property on `.output`, not opacity.
+- New controls go in the top bar (`TopBar`), not on the page; lift their state into `App`.
 
-```scss
-.card {
-  background: var(--color-bg);
-  padding: var(--spacing-2x);
+## Verify a change
 
-  &__header {
-    border-bottom: 1px solid var(--color-text-light);
-  }
-
-  &__title {
-    font-size: var(--font-size-xl);
-
-    &--large {
-      font-size: calc(var(--font-size-xl) * 1.5);
-    }
-  }
-}
-```
-
-```jsx
-<div className="card">
-  <div className="card__header">
-    <h2 className="card__title card__title--large">Title</h2>
-  </div>
-</div>
-```
-
-## CSS Custom Properties
-
-Available variables defined in `src/App.scss`:
-
-- `--color-text`, `--color-text-light`, `--color-bg`
-- `--font-size-base`, `--font-size-xl`
-- `--spacing-unit`, `--spacing-2x`, `--spacing-3x`
-
-## Environment Variables
-
-- Copy `.env.example` to `.env.local` for local configuration
-- All Vite environment variables must be prefixed with `VITE_`
-- Access in code: `import.meta.env.VITE_API_URL`
-
-Example:
-
-```jsx
-const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+```bash
+npm run lint
+npm run format:check
+npm run build
+npm run dev   # http://localhost:8080 — check Canvas, Table, Focus at desktop and ~390px wide
 ```

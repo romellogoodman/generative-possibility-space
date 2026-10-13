@@ -1,32 +1,29 @@
-# Prototype Boilerplate
+# GPS — Generative possibility space
 
-A minimal React boilerplate for rapid prototyping with Claude Code.
+A demo of different ways to browse generative outputs: an infinite canvas, a table of
+properties, and a focus view that shows variations of one output. For now every output is a
+grey square.
 
-React 19 + Vite + SCSS with BEM conventions.
+Live at [gps.romellogoodman.com](https://gps.romellogoodman.com).
 
-## Quick Start
+React 19 + Vite + SCSS.
+
+## Quick start
 
 ```bash
 npm install
-npm run dev
+npm run dev     # http://localhost:8080
 ```
 
-## Available Scripts
+## Scripts
 
 ```bash
-npm run dev          # Start dev server (port 8080)
-npm run build        # Build for production
-npm run lint         # Check for errors
-npm run lint:fix     # Fix linting errors
-npm run format       # Format code with Prettier
-npm run preview      # Preview production build
-npm run clean        # Remove build artifacts
+npm run dev           # Start dev server (port 8080)
+npm run build         # Build for production
+npm run lint          # Check for errors
+npm run format        # Format code with Prettier
+npm run format:check  # Check formatting
+npm run preview       # Preview production build
 ```
 
-## Environment Variables
-
-Copy `.env.example` to `.env.local` and configure as needed. All variables must be prefixed with `VITE_`.
-
-## Project Guidelines
-
-See [CLAUDE.md](CLAUDE.md) for file structure conventions, CSS/SCSS guidelines, and other project-specific instructions.
+See [CLAUDE.md](CLAUDE.md) for a map of the code and project conventions.
