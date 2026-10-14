@@ -1,5 +1,14 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Ellipsis,
+} from "lucide-react";
 import "./App.scss";
 
 const MIN_ZOOM = 0.25;
@@ -1180,7 +1189,9 @@ function Trail({ trail, current, onJump }) {
           >
             <Frame output={o} />
           </button>
-          <span className="trail__separator">›</span>
+          <span className="trail__separator">
+            <ChevronRight />
+          </span>
         </span>
       ))}
       <span
@@ -1287,7 +1298,11 @@ function MenuButton({ label, title, caret = true, children }) {
         onClick={toggle}
       >
         {label}
-        {caret && <span className="chip__caret">▾</span>}
+        {caret && (
+          <span className="chip__caret">
+            <ChevronDown />
+          </span>
+        )}
       </button>
       {position &&
         createPortal(
@@ -1311,7 +1326,7 @@ function MenuItem({ checked, hint, onSelect, close, children }) {
         close();
       }}
     >
-      <span className="menu__check">{checked ? "✓" : ""}</span>
+      <span className="menu__check">{checked && <Check />}</span>
       {children}
       {hint && <span className="menu__hint">{hint}</span>}
     </button>
@@ -1341,6 +1356,11 @@ function OptionMenu({ title, options, value, onChange, label, hints }) {
   );
 }
 
+function SortIcon({ dir }) {
+  const Arrow = dir > 0 ? ArrowUp : ArrowDown;
+  return <Arrow className="sort-icon" />;
+}
+
 function SortMenu({ sort, onSort }) {
   const current = SORT_KEYS.find((k) => k.key === sort.key);
   return (
@@ -1349,7 +1369,7 @@ function SortMenu({ sort, onSort }) {
       label={
         <>
           <span className="chip__label">Sort</span> {current.label}{" "}
-          {sort.dir > 0 ? "↑" : "↓"}
+          <SortIcon dir={sort.dir} />
         </>
       }
     >
@@ -1360,7 +1380,7 @@ function SortMenu({ sort, onSort }) {
             <MenuItem
               key={key}
               checked={key === sort.key}
-              hint={key === sort.key ? (sort.dir > 0 ? "↑" : "↓") : null}
+              hint={key === sort.key ? <SortIcon dir={sort.dir} /> : null}
               onSelect={() => onSort(nextSort(sort, key))}
               close={close}
             >
@@ -1463,7 +1483,11 @@ function TopBar({
               value={groupBy}
               onChange={onGroupBy}
             />
-            <MenuButton label="⋯" title="More" caret={false}>
+            <MenuButton
+              label={<Ellipsis className="chip__icon" />}
+              title="More"
+              caret={false}
+            >
               {(close) => (
                 <MenuItem onSelect={onToggleAllGroups} close={close}>
                   {allGroupsClosed ? "Expand all" : "Collapse all"}
@@ -1487,7 +1511,8 @@ function TopBar({
             title="Back (Esc)"
             onClick={onBack}
           >
-            ← <span className="chip__text">{modeLabel}</span>
+            <ArrowLeft className="chip__icon" />{" "}
+            <span className="chip__text">{modeLabel}</span>
           </button>
         ) : (
           <Segmented

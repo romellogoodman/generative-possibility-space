@@ -733,6 +733,10 @@ button {
     font-size: 11px;
   }
 
+  &__separator {
+    display: inline-flex;
+  }
+
   &__more {
     padding: 0 4px;
   }
@@ -1305,8 +1309,13 @@ button {
   }
 
   &__caret {
-    font-size: 9px;
+    display: inline-flex;
+    font-size: 11px;
     opacity: 0.6;
+  }
+
+  &__icon {
+    font-size: 15px;
   }
 
   &--zoom {
@@ -1321,6 +1330,18 @@ button {
     color: var(--color-bg);
     box-shadow: none;
   }
+}
+
+// Lucide icons in the bar and its menus take their size from font-size
+.top-bar svg,
+.menu svg {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+.sort-icon {
+  font-size: 12px;
 }
 
 .top-bar .trail {
@@ -1363,11 +1384,14 @@ button {
   }
 
   &__check {
+    display: inline-flex;
     width: 12px;
+    font-size: 12px;
     color: var(--color-highlight);
   }
 
   &__hint {
+    display: inline-flex;
     margin-left: auto;
     color: var(--color-text-light);
     font: 11px var(--font-mono);
