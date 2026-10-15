@@ -11,13 +11,13 @@ Everything lives in two files on purpose (fast prototyping). Split them only whe
 
 - `src/App.jsx`, by section comment:
   - top: `hash` / `makeOutput` (`src/App.jsx:19`) — outputs are deterministic from their grid position; `seededOutput` for ones made from a seed (variations, children, blends)
-  - Canvas mode (`src/App.jsx:123`) — infinite pan/zoom canvas, layouts Staggered, Contact sheet and Parameter map (a bounded square where position is size × shade)
-  - Table mode (`src/App.jsx:387`) — Spreadsheet, Cards, Split, Grouped
-  - Focus mode (`src/App.jsx:825`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials, Lineage. Everything visited is a tree; the trail is its path
-  - Make new ones (`src/App.jsx:1443`) — Breed (pick, breed the next generation) and Blend (scrub from A to B)
-  - About (`src/App.jsx:1629`) — the About GPS page, opened from the `gps` mark; for now just the repo link
-  - Top bar (`src/App.jsx:1654`) — the only chrome: one floating pill; the `gps` mark (opens About), then a view picker on the left (every view, in four columns, with a line each), the current view's controls on the right
-  - App (`src/App.jsx:2112`) — owns all view state (mode, layouts, sort, camera, focus tree, breed, blend, about) and passes it down
+  - Canvas mode (`src/App.jsx:129`) — infinite pan/zoom canvas, layouts Staggered, Contact sheet and Parameter map (a bounded square where position is size × shade)
+  - Table mode (`src/App.jsx:398`) — Spreadsheet, Cards, Split, Grouped
+  - Focus mode (`src/App.jsx:836`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials, Lineage. Everything visited is a tree that outlives Focus; the trail is its path
+  - Make new ones (`src/App.jsx:1463`) — Breed (pick, breed the next generation) and Blend (scrub from A to B)
+  - About (`src/App.jsx:1649`) — the About GPS page, opened from the `gps` mark; what the squares are, the install prompt, thanks
+  - Top bar (`src/App.jsx:1729`) — the only chrome: one floating pill; the `gps` mark (opens About), then a view picker on the left (every view, in four columns, with a line each), the current view's controls on the right
+  - App (`src/App.jsx:2267`) — owns all view state (mode, layouts, sort, camera, focus tree, breed, blend, about) and passes it down
 - `src/App.scss` — same sections; theme tokens on `:root`, light theme via `prefers-color-scheme`
 - `.orcc/` — design record from orcc sessions (decisions, mockups); not app code
 

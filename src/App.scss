@@ -182,7 +182,12 @@ button {
     top: 0;
     left: 0;
     transform-origin: 0 0;
-    will-change: transform;
+  }
+
+  // The square you opened last keeps a ring when you come back
+  &__cell--opened .output {
+    outline: 2px solid var(--color-highlight);
+    outline-offset: 4px;
   }
 
   &__cell {
@@ -768,7 +773,13 @@ button {
   }
 
   &__more {
-    padding: 0 4px;
+    padding: 2px 5px;
+    border-radius: 5px;
+
+    &:hover {
+      background: var(--color-line);
+      color: var(--color-text);
+    }
   }
 }
 
@@ -1378,6 +1389,11 @@ button {
     &--current {
       box-shadow: 0 0 0 1.5px var(--color-highlight);
     }
+
+    // Later generations stay until you breed from an earlier one
+    &--later {
+      opacity: 0.45;
+    }
   }
 
   &__picked {
@@ -1487,7 +1503,7 @@ button {
     }
   }
 
-  &__install {
+  &__section {
     margin-top: 36px;
     padding-top: var(--spacing-3x);
     border-top: 1px solid var(--color-line);
@@ -1521,6 +1537,13 @@ button {
       min-width: 0;
       overflow-wrap: anywhere;
     }
+  }
+
+  &__thanks {
+    margin: 36px 0 0;
+    color: var(--color-text-light);
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   &__copy {
@@ -1663,9 +1686,32 @@ button {
     font-weight: 500;
   }
 
-  &--action:disabled {
+  &:disabled {
     opacity: 0.4;
     cursor: default;
+  }
+
+  &__count {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 25%);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  &__thumb {
+    width: 20px;
+  }
+
+  &--zoom-step {
+    padding: 0 7px;
+    color: var(--color-text-light);
+  }
+
+  // Back out of Focus or About, naming where you land
+  &--back {
+    padding: 0 12px 0 10px;
   }
 
   &--zoom {
@@ -1782,9 +1828,13 @@ button {
     line-height: 1.4;
   }
 
-  &--views &__check,
-  &--views &__hint {
-    margin-top: 2px;
+  // No check column here: the current view is tinted instead
+  &--views &__check {
+    display: none;
+  }
+
+  &--views &__item[aria-checked="true"] {
+    background: color-mix(in srgb, var(--color-highlight) 16%, transparent);
   }
 
   &__check {
@@ -1821,11 +1871,12 @@ button {
   .chip--view,
   .chip--view:hover,
   .chip--view[aria-expanded="true"] {
-    padding: 0 9px;
+    padding: 0 8px;
   }
 
   .chip__label,
-  .chip__long {
+  .chip__long,
+  .chip--back .chip__text {
     display: none;
   }
 

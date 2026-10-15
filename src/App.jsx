@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   ArrowUpRight,
   Check,
@@ -9,6 +10,9 @@ import {
   ChevronDown,
   ChevronRight,
   Ellipsis,
+  Maximize2,
+  Minus,
+  Plus,
   X,
 } from "lucide-react";
 import "./App.scss";
@@ -198,6 +202,14 @@ function fitMapCamera() {
   };
 }
 
+// The camera zoomed to `zoom`, keeping the world point under (screenX, screenY) still
+function zoomAround(camera, zoom, screenX, screenY) {
+  const next = Math.min(Math.max(MIN_ZOOM, zoom), MAX_ZOOM);
+  const worldX = camera.x + screenX / camera.zoom;
+  const worldY = camera.y + screenY / camera.zoom;
+  return { x: worldX - screenX / next, y: worldY - screenY / next, zoom: next };
+}
+
 // Cells covering the visible area plus a margin, so panning never shows gaps
 function visibleCells(camera, width, height, cellSize) {
   const padding = cellSize;
@@ -217,7 +229,7 @@ function visibleCells(camera, width, height, cellSize) {
   return cells;
 }
 
-function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
+function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
   const containerRef = useRef(null);
   const layout = CANVAS_LAYOUTS.find((l) => l.id === layoutId);
   const [viewport, setViewport] = useState({
@@ -246,17 +258,14 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
             y: prev.y + e.deltaY / prev.zoom,
           };
         }
-        const zoom = Math.min(
-          Math.max(MIN_ZOOM, prev.zoom * Math.exp(-e.deltaY * 0.01)),
-          MAX_ZOOM
+        // A mouse-wheel notch is ~100px of delta; cap each event near 10%
+        const step = Math.max(-0.1, Math.min(0.1, -e.deltaY * 0.01));
+        return zoomAround(
+          prev,
+          prev.zoom * Math.exp(step),
+          e.clientX,
+          e.clientY
         );
-        const worldX = prev.x + e.clientX / prev.zoom;
-        const worldY = prev.y + e.clientY / prev.zoom;
-        return {
-          x: worldX - e.clientX / zoom,
-          y: worldY - e.clientY / zoom,
-          zoom,
-        };
       });
     };
 
@@ -332,7 +341,7 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
             return (
               <div
                 key={`${layoutId}:${cell.id}`}
-                className="infinite-canvas__cell"
+                className={`infinite-canvas__cell${cell.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
                 style={{
                   left: cell.gridX * cellSize,
                   top: cell.gridY * cellSize + columnOffset,
@@ -358,7 +367,7 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
           {mapCells.map(({ i, j, cellSize: size, output }) => (
             <div
               key={output.id}
-              className="infinite-canvas__cell"
+              className={`infinite-canvas__cell${output.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
               title={`#${output.seed} · size ${short(output.size)} · shade ${short(output.shade)}`}
               style={{
                 left: i * size,
@@ -378,7 +387,7 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
             smaller ← size → bigger
           </span>
           <span className="parameter-map__axis parameter-map__axis--y">
-            lighter ← shade → darker
+            darker ← shade → lighter
           </span>
         </>
       )}
@@ -797,7 +806,7 @@ const TABLE_LAYOUTS = [
   {
     id: "grouped",
     label: "Grouped",
-    description: "See outputs sorted into buckets by size, shade or date.",
+    description: "See outputs sorted into buckets by day, score or size.",
     Component: GroupedLayout,
   },
 ];
@@ -1382,13 +1391,18 @@ function LineageLayout({ output, onFocus, lineage }) {
           </span>
         </p>
         <ul className="lineage__list">
-          <LineageNode
-            node={nodes[0]}
-            nodes={nodes}
-            path={path}
-            current={current}
-            onGoTo={onGoTo}
-          />
+          {nodes
+            .filter((n) => n.parent === null)
+            .map((root) => (
+              <LineageNode
+                key={root.id}
+                node={root}
+                nodes={nodes}
+                path={path}
+                current={current}
+                onGoTo={onGoTo}
+              />
+            ))}
         </ul>
       </section>
     </div>
@@ -1403,9 +1417,13 @@ function Trail({ trail, current, onJump }) {
   return (
     <div className="trail">
       {from > 0 && (
-        <span className="trail__more" title={`${from} earlier`}>
+        <button
+          className="trail__more"
+          title={`Back to the step before (${from} earlier)`}
+          onClick={() => onJump(from - 1)}
+        >
           +{from}
-        </span>
+        </button>
       )}
       {trail.slice(from).map((o, n) => (
         <span key={`${o.id}-${from + n}`} className="trail__step">
@@ -1494,13 +1512,13 @@ function nextGeneration({ outputs, picked }, mutation) {
   };
 }
 
-function BreedMode({ generations, onToggle, onRewind }) {
-  const current = generations.at(-1);
+function BreedMode({ generations, current: index, onToggle, onRewind }) {
+  const current = generations[index];
   return (
     <div className="breed">
       <section>
         <p className="focus-label">
-          Generation {generations.length} · pick the ones you like, then breed
+          Generation {index + 1} · pick the ones you like, then breed
         </p>
         <div className="breed__grid">
           {current.outputs.map((o) => {
@@ -1534,7 +1552,7 @@ function BreedMode({ generations, onToggle, onRewind }) {
         {generations.map((g, n) => (
           <button
             key={n}
-            className={`breed__generation${n === generations.length - 1 ? " breed__generation--current" : ""}`}
+            className={`breed__generation${n === index ? " breed__generation--current" : ""}${n > index ? " breed__generation--later" : ""}`}
             onClick={() => onRewind(n)}
           >
             <span className="data-table__mono">{n + 1}</span>
@@ -1669,7 +1687,17 @@ function AboutPage() {
         >
           Github
         </a>
-        <section className="about__install">
+        <section className="about__section">
+          <h2 className="about__heading">What the squares are</h2>
+          <p className="about__text">
+            Every output here comes from a tiny example generator. Each square
+            has a seed, and its size and shade are drawn from that seed, so the
+            same square always comes back the same. The two numbers stand in for
+            whatever settings a real generator has. Swap in yours and the views
+            stay the same.
+          </p>
+        </section>
+        <section className="about__section">
           <h2 className="about__heading">Use it on your own outputs</h2>
           <p className="about__text">
             Paste this into Claude Code in the project that makes your outputs.
@@ -1689,6 +1717,10 @@ function AboutPage() {
             Every view and what it needs <ArrowUpRight />
           </a>
         </section>
+        <p className="about__thanks">
+          Special thanks to Luis Queral, who pointed GPS at his own video
+          project and sketched Parameter map, Lineage, Breed and Blend.
+        </p>
       </article>
     </div>
   );
@@ -1987,6 +2019,11 @@ function TopBar({
   about,
   onAbout,
   focus,
+  onHandOff,
+  onOpenMade,
+  opened,
+  onReopen,
+  onZoom,
   onView,
   onClose,
   onJump,
@@ -2026,23 +2063,58 @@ function TopBar({
         : mode;
 
   let context;
+  // Leaving About or Focus says where it lands
+  const baseLabel = making
+    ? mode[0].toUpperCase() + mode.slice(1)
+    : (mode === "canvas" ? CANVAS_LAYOUTS : TABLE_LAYOUTS).find(
+        (l) => l.id === (mode === "canvas" ? canvasLayout : tableLayout)
+      ).label;
+  const backTo =
+    about && focus
+      ? FOCUS_LAYOUTS.find((l) => l.id === focusLayout).label
+      : baseLabel;
+  const back = (
+    <button
+      className="chip chip--back"
+      title={`Back to ${backTo} (Esc)`}
+      onClick={onClose}
+    >
+      <ArrowLeft className="chip__icon" />
+      <span className="chip__text">{backTo}</span>
+    </button>
+  );
+
   if (about) {
-    context = (
-      <button className="chip" title="Close (Esc)" onClick={onClose}>
-        <X className="chip__icon" />
-      </button>
-    );
+    context = back;
   } else if (focus) {
     context = (
       <>
         <Trail trail={focus.trail} current={focus.output} onJump={onJump} />
-        <button className="chip" title="Close (Esc)" onClick={onClose}>
-          <X className="chip__icon" />
-        </button>
+        <MenuButton
+          label={<Ellipsis className="chip__icon" />}
+          title="Use this output in…"
+          caret={false}
+        >
+          {(close) => (
+            <>
+              <div className="menu__title">Use #{focus.output.seed} in…</div>
+              <MenuItem onSelect={() => onHandOff("a")} close={close}>
+                Blend · make it A
+              </MenuItem>
+              <MenuItem onSelect={() => onHandOff("b")} close={close}>
+                Blend · make it B
+              </MenuItem>
+              <MenuItem onSelect={() => onHandOff("breed")} close={close}>
+                Breed · start a generation from it
+              </MenuItem>
+            </>
+          )}
+        </MenuButton>
+        {back}
       </>
     );
   } else if (mode === "breed") {
-    const picks = breed.generations.at(-1).picked.length;
+    const picks = breed.generations[breed.current].picked.length;
     context = (
       <>
         <OptionMenu
@@ -2063,7 +2135,17 @@ function TopBar({
           title={picks ? `Breed from ${picks} picked` : "Pick at least one"}
           onClick={onBreed}
         >
-          Breed{picks ? ` ${picks}` : ""}
+          Next<span className="chip__long"> generation</span>
+          {picks > 0 && <span className="chip__count">{picks}</span>}
+        </button>
+        <button
+          className="chip"
+          disabled={!picks}
+          title="Open the last one you picked"
+          onClick={onOpenMade}
+        >
+          <Maximize2 className="chip__icon" />
+          <span className="chip__long">Open</span>
         </button>
       </>
     );
@@ -2079,17 +2161,47 @@ function TopBar({
         <button className="chip" title="New random B" onClick={onNewB}>
           New B
         </button>
+        <button className="chip" title="Open this blend" onClick={onOpenMade}>
+          <Maximize2 className="chip__icon" />
+          <span className="chip__long">Open</span>
+        </button>
       </>
     );
   } else if (mode === "canvas") {
     context = (
-      <button
-        className="chip chip--zoom"
-        title="Reset view"
-        onClick={onResetView}
-      >
-        {Math.round(zoom * 100)}%
-      </button>
+      <>
+        {opened && (
+          <button
+            className="chip"
+            title="Open the last output you looked at"
+            onClick={onReopen}
+          >
+            <span className="chip__long">Reopen </span>
+            <Frame output={opened} className="chip__thumb" />
+          </button>
+        )}
+        <button
+          className="chip chip--zoom-step"
+          title="Zoom out (−)"
+          onClick={() => onZoom(1 / 1.25)}
+        >
+          <Minus className="chip__icon" />
+        </button>
+        <button
+          className="chip chip--zoom"
+          title="Reset view (0)"
+          onClick={onResetView}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          className="chip chip--zoom-step"
+          title="Zoom in (+)"
+          onClick={() => onZoom(1.25)}
+        >
+          <Plus className="chip__icon" />
+        </button>
+      </>
     );
   } else if (grouped) {
     context = (
@@ -2168,25 +2280,38 @@ function App() {
   const [focusLayout, setFocusLayout] = useState(FOCUS_LAYOUTS[0].id);
   // The About GPS page, opened from the mark at the left of the bar
   const [about, setAbout] = useState(false);
-  // Every output visited in Focus, as a tree: { nodes: [{ id, output, parent }], current }
-  const [focus, setFocus] = useState(null);
+  // Every output visited in Focus, as a tree: { nodes: [{ id, output, parent }], current }.
+  // It outlives Focus, so closing and reopening keeps the path and Lineage's branches.
+  const [tree, setTree] = useState(null);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const focus = focusOpen ? tree : null;
+  // The output last opened from a browsing view, marked when you come back to it
+  const [opened, setOpened] = useState(null);
   const path = focus ? focusPath(focus) : [];
   const focused = focus && {
     output: path.at(-1).output,
     trail: path.slice(0, -1).map((n) => n.output),
   };
 
-  // The output Focus reopens on when it's picked from the view menu
-  const lastFocused = useRef(makeOutput(0, 0));
-  useEffect(() => {
-    if (focus) lastFocused.current = focus.nodes[focus.current].output;
-  }, [focus]);
-
-  const openFocus = (output) =>
-    setFocus({ nodes: [{ id: 0, output, parent: null }], current: 0 });
+  // Opening an output already in the tree returns to it; a new one starts another root
+  const openFocus = (output) => {
+    setTree((prev) => {
+      const nodes = prev?.nodes ?? [];
+      const existing = nodes.find((n) => n.output.id === output.id);
+      if (existing) return { nodes, current: existing.id };
+      const id = nodes.length;
+      return { nodes: [...nodes, { id, output, parent: null }], current: id };
+    });
+    setFocusOpen(true);
+  };
+  const openFrom = (output) => {
+    setOpened(output);
+    openFocus(output);
+  };
+  const closeFocus = () => setFocusOpen(false);
   // Stepping to an output already reached from here reuses that branch
   const focusOn = (output) =>
-    setFocus(({ nodes, current }) => {
+    setTree(({ nodes, current }) => {
       const existing = nodes.find(
         (n) => n.parent === current && n.output.id === output.id
       );
@@ -2197,9 +2322,9 @@ function App() {
         current: id,
       };
     });
-  const goTo = (id) => setFocus((prev) => ({ ...prev, current: id }));
+  const goTo = (id) => setTree((prev) => ({ ...prev, current: id }));
   const jumpTo = (index) =>
-    setFocus((prev) => ({ ...prev, current: focusPath(prev)[index].id }));
+    setTree((prev) => ({ ...prev, current: focusPath(prev)[index].id }));
 
   // Esc closes About, then leaves Focus
   useEffect(() => {
@@ -2207,7 +2332,7 @@ function App() {
     const handleKeyDown = (e) => {
       if (e.key !== "Escape") return;
       if (about) setAbout(false);
-      else setFocus(null);
+      else closeFocus();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -2237,6 +2362,8 @@ function App() {
 
   const [breed, setBreed] = useState(() => ({
     generations: [firstGeneration()],
+    // The generation on screen; later ones stay in the history until you breed again
+    current: 0,
     mutation: MUTATIONS[1].id,
   }));
   const [blend, setBlend] = useState(() => ({
@@ -2249,11 +2376,16 @@ function App() {
   const updateGeneration = (update) =>
     setBreed((prev) => ({
       ...prev,
-      generations: [
-        ...prev.generations.slice(0, -1),
-        update(prev.generations.at(-1)),
-      ],
+      generations: prev.generations.map((g, n) =>
+        n === prev.current ? update(g) : g
+      ),
     }));
+  // Breeding from an earlier generation replaces everything after it
+  const addGeneration = (prev, generation) => ({
+    ...prev,
+    generations: [...prev.generations.slice(0, prev.current + 1), generation],
+    current: prev.current + 1,
+  });
   const togglePick = (id) =>
     updateGeneration((g) => ({
       ...g,
@@ -2263,18 +2395,11 @@ function App() {
     }));
   const breedNext = () =>
     setBreed((prev) => {
-      const last = prev.generations.at(-1);
-      if (!last.picked.length) return prev;
-      return {
-        ...prev,
-        generations: [...prev.generations, nextGeneration(last, prev.mutation)],
-      };
+      const shown = prev.generations[prev.current];
+      if (!shown.picked.length) return prev;
+      return addGeneration(prev, nextGeneration(shown, prev.mutation));
     });
-  const rewind = (n) =>
-    setBreed((prev) => ({
-      ...prev,
-      generations: prev.generations.slice(0, n + 1),
-    }));
+  const rewind = (n) => setBreed((prev) => ({ ...prev, current: n }));
   // The blend under the scrubber becomes one end, and the scrubber recentres
   const setBlendEnd = (end) =>
     setBlend((prev) => ({ ...prev, [end]: blendAt(prev, prev.t), t: 0.5 }));
@@ -2285,22 +2410,72 @@ function App() {
       draws: prev.draws + 1,
     }));
 
+  // Send the output in Focus on to Blend or Breed
+  const handOff = (to) => {
+    const output = focus.nodes[focus.current].output;
+    if (to === "breed")
+      setBreed((prev) =>
+        addGeneration(
+          prev,
+          nextGeneration(
+            { outputs: [output], picked: [output.id] },
+            prev.mutation
+          )
+        )
+      );
+    else setBlend((prev) => ({ ...prev, [to]: output, t: 0.5 }));
+    closeFocus();
+    setMode(to === "breed" ? "breed" : "blend");
+  };
+  // Open what Blend or Breed made in Focus
+  const openMade = () => {
+    if (mode === "blend") return openFocus(blendAt(blend, blend.t));
+    const shown = breed.generations[breed.current];
+    const id = shown.picked.at(-1);
+    if (id) openFocus(shown.outputs.find((o) => o.id === id));
+  };
+  // Zoom by a factor around the middle of the window
+  const zoomBy = (factor) =>
+    setCamera((prev) =>
+      zoomAround(
+        prev,
+        prev.zoom * factor,
+        window.innerWidth / 2,
+        window.innerHeight / 2
+      )
+    );
+
   const resetView = () =>
     setCamera(canvasLayout === "parameter-map" ? fitMapCamera() : START_CAMERA);
+
+  // On the canvas, + and − zoom and 0 resets the view
+  useEffect(() => {
+    if (mode !== "canvas" || focusOpen || about) return;
+    const handleKeyDown = (e) => {
+      if (e.metaKey || e.ctrlKey || e.target.closest?.("input, textarea"))
+        return;
+      if (e.key === "+" || e.key === "=") zoomBy(1.25);
+      else if (e.key === "-") zoomBy(1 / 1.25);
+      else if (e.key === "0") resetView();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   const changeView = (group, layout) => {
     setAbout(false);
     if (group === "make") {
-      setFocus(null);
+      closeFocus();
       setMode(layout);
       return;
     }
     if (group === "focus") {
       setFocusLayout(layout);
-      if (!focus) openFocus(lastFocused.current);
+      if (tree) setFocusOpen(true);
+      else openFocus(makeOutput(0, 0));
       return;
     }
-    setFocus(null);
+    closeFocus();
     setMode(group);
     if (group === "table") setTableLayout(layout);
     if (group !== "canvas") return;
@@ -2315,7 +2490,8 @@ function App() {
       {/* Kept mounted under Focus so the canvas position and table state survive */}
       {mode === "canvas" && (
         <CanvasMode
-          onOpen={openFocus}
+          onOpen={openFrom}
+          openedId={opened?.id}
           layoutId={canvasLayout}
           camera={camera}
           setCamera={setCamera}
@@ -2324,6 +2500,7 @@ function App() {
       {mode === "breed" && (
         <BreedMode
           generations={breed.generations}
+          current={breed.current}
           onToggle={togglePick}
           onRewind={rewind}
         />
@@ -2336,7 +2513,7 @@ function App() {
       )}
       {mode === "table" && (
         <TableMode
-          onOpen={openFocus}
+          onOpen={openFrom}
           paused={Boolean(focus)}
           layout={tableLayout}
           sort={sort}
@@ -2357,11 +2534,16 @@ function App() {
       {about && <AboutPage />}
       <TopBar
         mode={mode}
+        onHandOff={handOff}
+        onOpenMade={openMade}
+        opened={mode === "canvas" ? opened : null}
+        onReopen={() => openFocus(opened)}
+        onZoom={zoomBy}
         about={about}
         onAbout={() => setAbout((open) => !open)}
         focus={focused}
         onView={changeView}
-        onClose={() => (about ? setAbout(false) : setFocus(null))}
+        onClose={() => (about ? setAbout(false) : closeFocus())}
         onJump={jumpTo}
         canvasLayout={canvasLayout}
         zoom={camera.zoom}
