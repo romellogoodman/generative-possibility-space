@@ -2,12 +2,12 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,
   Ellipsis,
+  X,
 } from "lucide-react";
 import "./App.scss";
 
@@ -40,7 +40,26 @@ function makeOutput(gridX, gridY) {
   };
 }
 
+// An output made elsewhere (a variation, a child, a blend): its seed fixes everything but size and shade
+function seededOutput(seed, size, shade) {
+  const day = Math.floor(hash(seed, 0, 3) * 11);
+  const hour = Math.floor(hash(seed, 0, 4) * 24);
+  const minute = Math.floor(hash(seed, 0, 5) * 60);
+  return {
+    id: `s${seed}`,
+    seed,
+    size: round2(size),
+    shade: round2(shade),
+    score: Math.floor(hash(seed, 0, 6) * 5) + 1,
+    created: new Date(Date.UTC(2026, 9, 1 + day, hour, minute)),
+  };
+}
+
 function outputFromId(id) {
+  if (id.startsWith("m")) {
+    const [steps, i, j] = id.slice(1).split(/[:,]/).map(Number);
+    return mapOutput(steps, i, j);
+  }
   const [gridX, gridY] = id.split(",").map(Number);
   return makeOutput(gridX, gridY);
 }
@@ -101,50 +120,81 @@ function Score({ value }) {
   );
 }
 
-function Segmented({ label, options, value, onChange, quiet = false }) {
-  return (
-    <div
-      className={`segmented${quiet ? " segmented--quiet" : ""}`}
-      role="tablist"
-      aria-label={label}
-    >
-      {options.map(({ id, label: optionLabel, short }) => (
-        <button
-          key={id}
-          role="tab"
-          aria-selected={id === value}
-          className={`segmented__option${id === value ? " segmented__option--active" : ""}`}
-          onClick={() => onChange(id)}
-        >
-          {short ? (
-            <>
-              <span className="segmented__full">{optionLabel}</span>
-              <span className="segmented__short">{short}</span>
-            </>
-          ) : (
-            optionLabel
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /* ---------- Canvas mode ---------- */
 
 const CANVAS_LAYOUTS = [
   // Big cells, odd columns half a cell lower, like crescents
-  { id: "staggered", label: "Staggered", cellSize: 240, stagger: true },
+  {
+    id: "staggered",
+    label: "Staggered",
+    description:
+      "Wander a big field of outputs and let your eye catch what stands out.",
+    cellSize: 240,
+    stagger: true,
+  },
   // Tight even grid of same-size squares, captioned when zoomed in
   {
     id: "contact-sheet",
     label: "Contact sheet",
-    short: "Contact",
+    description:
+      "Scan many outputs at the same size, so only the shade differs.",
     cellSize: 150,
     fixedSize: 0.92,
   },
+  // A bounded square where position is the settings; zooming in shows finer steps
+  {
+    id: "parameter-map",
+    label: "Parameter map",
+    description:
+      "Find outputs by their settings: size runs left to right, shade top to bottom.",
+    mapped: true,
+  },
 ];
 const CAPTION_ZOOM = 1.6;
+
+// The parameter map is a MAP_SIZE square in world space, split into more steps as you zoom in
+const MAP_SIZE = 960;
+const mapSteps = (zoom) => (zoom >= 2.4 ? 32 : zoom >= 1.3 ? 16 : 8);
+const lerp = ([min, max], t) => min + (max - min) * t;
+
+// The output at step (i, j) of an n × n map: left to right is size, top to bottom is shade
+function mapOutput(steps, i, j) {
+  const base = makeOutput(i + steps * 100, j);
+  return {
+    ...base,
+    id: `m${steps}:${i},${j}`,
+    size: round2(lerp(SIZE_RANGE, (i + 0.5) / steps)),
+    shade: round2(lerp(SHADE_RANGE, (j + 0.5) / steps)),
+  };
+}
+
+// Visible map steps; outside the square there is nothing
+function visibleMapCells(camera, width, height) {
+  const steps = mapSteps(camera.zoom);
+  const cellSize = MAP_SIZE / steps;
+  const toStep = (world) => Math.floor(world / cellSize);
+  const cells = [];
+  const iEnd = Math.min(steps - 1, toStep(camera.x + width / camera.zoom));
+  const jEnd = Math.min(steps - 1, toStep(camera.y + height / camera.zoom));
+  for (let i = Math.max(0, toStep(camera.x)); i <= iEnd; i++) {
+    for (let j = Math.max(0, toStep(camera.y)); j <= jEnd; j++) {
+      cells.push({ i, j, cellSize, output: mapOutput(steps, i, j) });
+    }
+  }
+  return cells;
+}
+
+// The camera that fits the whole map below the top bar
+function fitMapCamera() {
+  const width = window.innerWidth;
+  const height = window.innerHeight - 140;
+  const zoom = Math.min(1, (width - 64) / MAP_SIZE, height / MAP_SIZE);
+  return {
+    zoom,
+    x: -(width / zoom - MAP_SIZE) / 2,
+    y: -(height / zoom - MAP_SIZE) / 2 - 70 / zoom,
+  };
+}
 
 // Cells covering the visible area plus a margin, so panning never shows gaps
 function visibleCells(camera, width, height, cellSize) {
@@ -245,7 +295,12 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
   };
 
   const { cellSize } = layout;
-  const cells = visibleCells(camera, viewport.width, viewport.height, cellSize);
+  const cells = layout.mapped
+    ? []
+    : visibleCells(camera, viewport.width, viewport.height, cellSize);
+  const mapCells = layout.mapped
+    ? visibleMapCells(camera, viewport.width, viewport.height)
+    : [];
   const showCaptions = layout.fixedSize && camera.zoom >= CAPTION_ZOOM;
 
   return (
@@ -292,8 +347,39 @@ function CanvasMode({ onOpen, layoutId, camera, setCamera }) {
               </div>
             );
           })}
+          {layout.mapped && (
+            <div
+              className="parameter-map__bounds"
+              style={{ width: MAP_SIZE, height: MAP_SIZE }}
+            />
+          )}
+          {mapCells.map(({ i, j, cellSize: size, output }) => (
+            <div
+              key={output.id}
+              className="infinite-canvas__cell"
+              title={`#${output.seed} · size ${short(output.size)} · shade ${short(output.shade)}`}
+              style={{
+                left: i * size,
+                top: j * size,
+                width: size,
+                height: size,
+              }}
+            >
+              <Output output={output} scale={0.9} />
+            </div>
+          ))}
         </div>
       </div>
+      {layout.mapped && (
+        <>
+          <span className="parameter-map__axis parameter-map__axis--x">
+            smaller ← size → bigger
+          </span>
+          <span className="parameter-map__axis parameter-map__axis--y">
+            lighter ← shade → darker
+          </span>
+        </>
+      )}
     </>
   );
 }
@@ -688,10 +774,30 @@ function GroupedLayout({
 }
 
 const TABLE_LAYOUTS = [
-  { id: "spreadsheet", label: "Spreadsheet", Component: SpreadsheetLayout },
-  { id: "cards", label: "Cards", Component: CardsLayout },
-  { id: "split", label: "Split", Component: SplitLayout },
-  { id: "grouped", label: "Grouped", Component: GroupedLayout },
+  {
+    id: "spreadsheet",
+    label: "Spreadsheet",
+    description: "Sort and compare every property, one output per row.",
+    Component: SpreadsheetLayout,
+  },
+  {
+    id: "cards",
+    label: "Cards",
+    description: "Browse big previews with their details underneath.",
+    Component: CardsLayout,
+  },
+  {
+    id: "split",
+    label: "Split",
+    description: "Skim a long list while a large preview follows along.",
+    Component: SplitLayout,
+  },
+  {
+    id: "grouped",
+    label: "Grouped",
+    description: "See outputs sorted into buckets by size, shade or date.",
+    Component: GroupedLayout,
+  },
 ];
 
 function TableMode({ onOpen, paused, layout, ...settings }) {
@@ -1162,11 +1268,130 @@ function DialsLayout({ output, onFocus }) {
 }
 
 const FOCUS_LAYOUTS = [
-  { id: "strip", label: "Strip", Component: StripLayout },
-  { id: "compass", label: "Compass", Component: CompassLayout },
-  { id: "inspector", label: "Inspector", Component: InspectorLayout },
-  { id: "dials", label: "Dials", Component: DialsLayout },
+  {
+    id: "strip",
+    label: "Strip",
+    description: "One output large, with a row of close variations under it.",
+    Component: StripLayout,
+  },
+  {
+    id: "compass",
+    label: "Compass",
+    description:
+      "Nudge in a direction: left and right change size, up and down change shade.",
+    Component: CompassLayout,
+  },
+  {
+    id: "inspector",
+    label: "Inspector",
+    description: "Read every property and see how each variation differs.",
+    Component: InspectorLayout,
+  },
+  {
+    id: "dials",
+    label: "Dials",
+    description: "Step one property at a time while the rest stay put.",
+    Component: DialsLayout,
+  },
+  {
+    id: "lineage",
+    label: "Lineage",
+    description:
+      "See where you have been as a tree, and branch off from any step.",
+    Component: LineageLayout,
+  },
 ];
+
+// Everything visited in Focus is a tree; the trail is the path from its root to the current node
+function focusPath({ nodes, current }) {
+  const path = [];
+  for (let id = current; id !== null; id = nodes[id].parent)
+    path.unshift(nodes[id]);
+  return path;
+}
+
+function LineageNode({ node, nodes, path, current, onGoTo }) {
+  const children = nodes.filter((n) => n.parent === node.id);
+  const onPath = path.has(node.id);
+  return (
+    <li>
+      <button
+        className={`lineage__node${onPath ? " lineage__node--path" : ""}${node.id === current ? " lineage__node--current" : ""}`}
+        onClick={() => onGoTo(node.id)}
+      >
+        <Frame output={node.output} className="lineage__thumb" />
+        <span className="data-table__mono">#{node.output.seed}</span>
+      </button>
+      {children.length > 0 && (
+        <ul>
+          {children.map((child) => (
+            <LineageNode
+              key={child.id}
+              node={child}
+              nodes={nodes}
+              path={path}
+              current={current}
+              onGoTo={onGoTo}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function LineageLayout({ output, onFocus, lineage }) {
+  const { nodes, current, onGoTo } = lineage;
+  const variations = nearby(output, 6, 0.14, 0.22);
+  const visited = new Set(
+    nodes.filter((n) => n.parent === current).map((n) => n.output.id)
+  );
+  const path = new Set(focusPath(lineage).map((n) => n.id));
+  const branches = nodes.filter(
+    (n) => !nodes.some((child) => child.parent === n.id)
+  ).length;
+  return (
+    <div className="lineage">
+      <div className="lineage__main">
+        <Hero output={output}>
+          <FocusMeta output={output} />
+        </Hero>
+        <p className="focus-label">
+          Variations · a dot means you have been there
+        </p>
+        <div className="lineage__variations">
+          {variations.map((v) => (
+            <button
+              key={v.id}
+              className={`alternative${visited.has(v.id) ? " alternative--visited" : ""}`}
+              title={`#${v.seed} · size ${short(v.size)} · shade ${short(v.shade)}`}
+              onClick={() => onFocus(v)}
+            >
+              <Frame output={v} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <section className="lineage__tree">
+        <p className="focus-heading">
+          <span>
+            {nodes.length} visited · {branches} branch
+            {branches === 1 ? "" : "es"}
+          </span>
+        </p>
+        <ul className="lineage__list">
+          <LineageNode
+            node={nodes[0]}
+            nodes={nodes}
+            path={path}
+            current={current}
+            onGoTo={onGoTo}
+          />
+        </ul>
+      </section>
+    </div>
+  );
+}
 
 const TRAIL_LENGTH = 5;
 
@@ -1204,13 +1429,225 @@ function Trail({ trail, current, onJump }) {
   );
 }
 
-function FocusMode({ output, layoutId, onFocus }) {
+function FocusMode({ output, layoutId, onFocus, lineage }) {
   const { Component } = FOCUS_LAYOUTS.find((l) => l.id === layoutId);
   return (
     <div className="focus-mode">
       <div className="focus-mode__body">
-        <Component output={output} onFocus={onFocus} />
+        <Component output={output} onFocus={onFocus} lineage={lineage} />
       </div>
+    </div>
+  );
+}
+
+/* ---------- Make new ones ---------- */
+
+const BREED_SIZE = 9;
+const MUTATIONS = [
+  { id: 0.04, label: "Low" },
+  { id: 0.08, label: "Medium" },
+  { id: 0.16, label: "High" },
+];
+
+function firstGeneration() {
+  return {
+    outputs: Array.from({ length: BREED_SIZE }, (_, k) =>
+      seededOutput(
+        Math.floor(hash(k, 0, 11) * 1e6),
+        lerp(SIZE_RANGE, hash(k, 0, 12)),
+        lerp(SHADE_RANGE, hash(k, 0, 13))
+      )
+    ),
+    picked: [],
+  };
+}
+
+// A rough bell curve in [-1, 1]
+const wobble = () => (Math.random() + Math.random() + Math.random()) / 1.5 - 1;
+
+// Children mix two random parents from the picks, then drift by the mutation amount
+function nextGeneration({ outputs, picked }, mutation) {
+  const parents = outputs.filter((o) => picked.includes(o.id));
+  const pick = () => parents[Math.floor(Math.random() * parents.length)];
+  return {
+    outputs: Array.from({ length: BREED_SIZE }, () => {
+      const [a, b] = [pick(), pick()];
+      const mix = Math.random();
+      return {
+        ...seededOutput(
+          Math.floor(Math.random() * 1e6),
+          clamp(
+            a.size * mix + b.size * (1 - mix) + wobble() * mutation,
+            SIZE_RANGE
+          ),
+          clamp(
+            a.shade * mix + b.shade * (1 - mix) + wobble() * mutation * 1.4,
+            SHADE_RANGE
+          )
+        ),
+        parents: [...new Set([a.seed, b.seed])],
+      };
+    }),
+    picked: [],
+  };
+}
+
+function BreedMode({ generations, onToggle, onRewind }) {
+  const current = generations.at(-1);
+  return (
+    <div className="breed">
+      <section>
+        <p className="focus-label">
+          Generation {generations.length} · pick the ones you like, then breed
+        </p>
+        <div className="breed__grid">
+          {current.outputs.map((o) => {
+            const picked = current.picked.includes(o.id);
+            return (
+              <button
+                key={o.id}
+                className={`alternative breed__candidate${picked ? " alternative--peek" : ""}`}
+                aria-pressed={picked}
+                title={
+                  o.parents
+                    ? `#${o.seed} · from #${o.parents.join(" × #")}`
+                    : `#${o.seed}`
+                }
+                onClick={() => onToggle(o.id)}
+              >
+                <Frame output={o} />
+                <span className="breed__meta data-table__mono">
+                  size {short(o.size)} · shade {short(o.shade)}
+                  {picked && <Check className="breed__check" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      <section className="breed__history">
+        <p className="focus-heading">
+          <span>Generations · click one to go back</span>
+        </p>
+        {generations.map((g, n) => (
+          <button
+            key={n}
+            className={`breed__generation${n === generations.length - 1 ? " breed__generation--current" : ""}`}
+            onClick={() => onRewind(n)}
+          >
+            <span className="data-table__mono">{n + 1}</span>
+            {g.outputs.map((o) => (
+              <Frame
+                key={o.id}
+                output={o}
+                className={g.picked.includes(o.id) ? "breed__picked" : ""}
+              />
+            ))}
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+const BLEND_STEPS = 9;
+
+function randomOutput(draw) {
+  return seededOutput(
+    Math.floor(hash(draw, 0, 21) * 1e6),
+    lerp(SIZE_RANGE, hash(draw, 0, 22)),
+    lerp(SHADE_RANGE, hash(draw, 0, 23))
+  );
+}
+
+// The output t of the way from A to B; its seed comes from both ends
+function blendAt({ a, b }, t) {
+  return seededOutput(
+    Math.floor(hash(a.seed, b.seed, Math.round(t * 100)) * 1e6),
+    a.size + (b.size - a.size) * t,
+    a.shade + (b.shade - a.shade) * t
+  );
+}
+
+function BlendMode({ blend, onScrub }) {
+  const { a, b, t } = blend;
+  const current = blendAt(blend, t);
+  const active = Math.round(t * (BLEND_STEPS - 1));
+  return (
+    <div className="blend">
+      <div className="blend__ends">
+        <div className="blend__end">
+          <span className="blend__label">A</span>
+          <Frame output={a} />
+        </div>
+        <div>
+          <Frame key={current.id} output={current} />
+          <p className="focus-meta">
+            <span className="data-table__mono">
+              {Math.round((1 - t) * 100)}% A · {Math.round(t * 100)}% B
+            </span>
+            <span className="data-table__mono">size {short(current.size)}</span>
+            <span className="data-table__mono">
+              shade {short(current.shade)}
+            </span>
+          </p>
+        </div>
+        <div className="blend__end">
+          <span className="blend__label">B</span>
+          <Frame output={b} />
+        </div>
+      </div>
+      <input
+        className="blend__scrubber"
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={t}
+        aria-label="Blend from A to B"
+        onChange={(e) => onScrub(Number(e.target.value))}
+      />
+      <div className="blend__steps">
+        {Array.from({ length: BLEND_STEPS }, (_, k) => {
+          const s = blendAt(blend, k / (BLEND_STEPS - 1));
+          return (
+            <button
+              key={k}
+              className={`alternative${k === active ? " alternative--peek" : ""}`}
+              title={`size ${short(s.size)} · shade ${short(s.shade)}`}
+              onClick={() => onScrub(k / (BLEND_STEPS - 1))}
+            >
+              <Frame output={s} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- About ---------- */
+
+const REPO_URL =
+  "https://github.com/romellogoodman/generative-possibility-space";
+
+// For now just the repo; the overview and install steps come with the skill
+function AboutPage() {
+  return (
+    <div className="about">
+      <article className="about__body">
+        <h1 className="about__title">Generative possibility space</h1>
+        <p className="about__lede">Ways to browse generative outputs</p>
+        <a
+          className="about__link"
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Github
+        </a>
+        <p className="about__soon">More coming soon.</p>
+      </article>
     </div>
   );
 }
@@ -1244,7 +1681,15 @@ function MorphStage({ contentKey, className = "", children }) {
 }
 
 // A pill button that opens a small menu below it
-function MenuButton({ label, title, caret = true, children }) {
+function MenuButton({
+  label,
+  title,
+  caret = true,
+  className = "",
+  menuClassName = "",
+  centered = false,
+  children,
+}) {
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
   const [position, setPosition] = useState(null);
@@ -1253,20 +1698,43 @@ function MenuButton({ label, title, caret = true, children }) {
   const toggle = () => {
     if (position) return close();
     const rect = buttonRef.current.getBoundingClientRect();
-    setPosition({
-      top: rect.bottom + 8,
-      left: Math.min(rect.left, window.innerWidth - 200),
-    });
+    setPosition({ top: rect.bottom + 8, left: rect.left });
   };
+
+  // Once the menu has a width, centre it in the window or pull it back inside the right edge
+  useLayoutEffect(() => {
+    if (!position) return;
+    const width = menuRef.current.offsetWidth;
+    const left = centered
+      ? Math.max(8, (window.innerWidth - width) / 2)
+      : Math.max(8, Math.min(position.left, window.innerWidth - width - 8));
+    if (left !== position.left) setPosition({ ...position, left });
+  }, [position, centered]);
 
   useEffect(() => {
     if (!position) return;
+    // A press outside only closes the menu: it never reaches the page underneath
+    const swallow = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
     const handlePointerDown = (e) => {
       if (
-        !menuRef.current?.contains(e.target) &&
-        !buttonRef.current.contains(e.target)
+        menuRef.current?.contains(e.target) ||
+        buttonRef.current.contains(e.target)
       )
-        close();
+        return;
+      e.stopPropagation();
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      window.addEventListener(
+        "pointerup",
+        () =>
+          setTimeout(() =>
+            window.removeEventListener("click", swallow, { capture: true })
+          ),
+        { capture: true, once: true }
+      );
+      close();
     };
     // Captured first, so Esc closes the menu without also leaving Focus
     const handleKeyDown = (e) => {
@@ -1275,10 +1743,10 @@ function MenuButton({ label, title, caret = true, children }) {
       close();
       buttonRef.current.focus();
     };
-    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointerdown", handlePointerDown, true);
     window.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointerdown", handlePointerDown, true);
       window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [position]);
@@ -1291,7 +1759,7 @@ function MenuButton({ label, title, caret = true, children }) {
     <>
       <button
         ref={buttonRef}
-        className="chip"
+        className={`chip ${className}`}
         title={title}
         aria-haspopup="menu"
         aria-expanded={Boolean(position)}
@@ -1306,7 +1774,15 @@ function MenuButton({ label, title, caret = true, children }) {
       </button>
       {position &&
         createPortal(
-          <div ref={menuRef} className="menu" role="menu" style={position}>
+          <div
+            ref={menuRef}
+            className={`menu ${menuClassName}`}
+            role="menu"
+            style={{
+              ...position,
+              maxHeight: `calc(100vh - ${position.top + 12}px)`,
+            }}
+          >
             {children(close)}
           </div>,
           document.body
@@ -1315,7 +1791,7 @@ function MenuButton({ label, title, caret = true, children }) {
   );
 }
 
-function MenuItem({ checked, hint, onSelect, close, children }) {
+function MenuItem({ checked, hint, description, onSelect, close, children }) {
   return (
     <button
       role={checked === undefined ? "menuitem" : "menuitemradio"}
@@ -1327,23 +1803,29 @@ function MenuItem({ checked, hint, onSelect, close, children }) {
       }}
     >
       <span className="menu__check">{checked && <Check />}</span>
-      {children}
+      {description ? (
+        <span className="menu__text">
+          {children}
+          <span className="menu__description">{description}</span>
+        </span>
+      ) : (
+        children
+      )}
       {hint && <span className="menu__hint">{hint}</span>}
     </button>
   );
 }
 
-function OptionMenu({ title, options, value, onChange, label, hints }) {
+function OptionMenu({ title, options, value, onChange, label }) {
   return (
     <MenuButton label={label} title={title}>
       {(close) => (
         <>
           <div className="menu__title">{title}</div>
-          {options.map((option, n) => (
+          {options.map((option) => (
             <MenuItem
               key={option.id}
               checked={option.id === value}
-              hint={hints?.[n]}
               onSelect={() => onChange(option.id)}
               close={close}
             >
@@ -1393,18 +1875,83 @@ function SortMenu({ sort, onSort }) {
   );
 }
 
+// Every view in one menu: the canvas and table layouts, then Focus's, which work on one output
+const VIEW_GROUPS = [
+  { id: "canvas", title: "See a lot at once", layouts: CANVAS_LAYOUTS },
+  { id: "table", title: "Line them up and sort", layouts: TABLE_LAYOUTS },
+  {
+    id: "focus",
+    title: "Explore around one output",
+    layouts: FOCUS_LAYOUTS,
+  },
+  {
+    id: "make",
+    title: "Make new ones",
+    layouts: [
+      {
+        id: "breed",
+        label: "Breed",
+        description:
+          "Pick the outputs you like, and the next generation grows from them.",
+      },
+      {
+        id: "blend",
+        label: "Blend",
+        description:
+          "Choose two outputs and scrub through the steps between them.",
+      },
+    ],
+  },
+];
+const MAKE_MODES = ["breed", "blend"];
+
+function ViewPicker({ group, layout, onView, label: override }) {
+  const label =
+    override ??
+    VIEW_GROUPS.find((g) => g.id === group).layouts.find((l) => l.id === layout)
+      .label;
+  return (
+    <MenuButton
+      label={label}
+      title="View"
+      className="chip--view"
+      menuClassName="menu--views"
+      centered
+    >
+      {(close) =>
+        VIEW_GROUPS.map((g) => (
+          <div key={g.id} className="menu__column">
+            <div className="menu__title">{g.title}</div>
+            {g.layouts.map((l) => (
+              <MenuItem
+                key={l.id}
+                checked={g.id === group && l.id === layout}
+                description={l.description}
+                onSelect={() => onView(g.id, l.id)}
+                close={close}
+              >
+                {l.label}
+              </MenuItem>
+            ))}
+          </div>
+        ))
+      }
+    </MenuButton>
+  );
+}
+
 function TopBar({
   mode,
-  onModeChange,
+  about,
+  onAbout,
   focus,
-  onBack,
+  onView,
+  onClose,
   onJump,
   canvasLayout,
-  onCanvasLayout,
   zoom,
   onResetView,
   tableLayout,
-  onTableLayout,
   sort,
   onSort,
   groupBy,
@@ -1412,116 +1959,149 @@ function TopBar({
   allGroupsClosed,
   onToggleAllGroups,
   focusLayout,
-  onFocusLayout,
+  breed,
+  onMutation,
+  onBreed,
+  onBlendEnd,
+  onNewB,
 }) {
-  const modeLabel = MODES.find((m) => m.id === mode).label;
   const grouped = tableLayout === "grouped";
-  const contextKey = focus
-    ? "focus"
-    : mode === "table"
-      ? `table-${grouped}`
-      : mode;
+  const making = MAKE_MODES.includes(mode);
+  const group = focus ? "focus" : making ? "make" : mode;
+  const layout = focus
+    ? focusLayout
+    : making
+      ? mode
+      : mode === "canvas"
+        ? canvasLayout
+        : tableLayout;
+  const contextKey = about
+    ? "about"
+    : focus
+      ? "focus"
+      : mode === "table"
+        ? `table-${grouped}`
+        : mode;
 
   let context;
-  if (focus) {
+  if (about) {
+    context = (
+      <button className="chip" title="Close (Esc)" onClick={onClose}>
+        <X className="chip__icon" />
+      </button>
+    );
+  } else if (focus) {
     context = (
       <>
         <Trail trail={focus.trail} current={focus.output} onJump={onJump} />
+        <button className="chip" title="Close (Esc)" onClick={onClose}>
+          <X className="chip__icon" />
+        </button>
+      </>
+    );
+  } else if (mode === "breed") {
+    const picks = breed.generations.at(-1).picked.length;
+    context = (
+      <>
         <OptionMenu
-          title="Focus layout"
-          label={FOCUS_LAYOUTS.find((l) => l.id === focusLayout).label}
-          options={FOCUS_LAYOUTS}
-          value={focusLayout}
-          onChange={onFocusLayout}
-          hints={["1", "2", "3", "4"]}
+          title="Mutation"
+          label={
+            <>
+              <span className="chip__label">mutation</span>{" "}
+              {MUTATIONS.find((m) => m.id === breed.mutation).label}
+            </>
+          }
+          options={MUTATIONS}
+          value={breed.mutation}
+          onChange={onMutation}
         />
+        <button
+          className="chip chip--action"
+          disabled={!picks}
+          title={picks ? `Breed from ${picks} picked` : "Pick at least one"}
+          onClick={onBreed}
+        >
+          Breed{picks ? ` ${picks}` : ""}
+        </button>
+      </>
+    );
+  } else if (mode === "blend") {
+    context = (
+      <>
+        <button className="chip" onClick={() => onBlendEnd("a")}>
+          Make <span className="chip__long">this </span>A
+        </button>
+        <button className="chip" onClick={() => onBlendEnd("b")}>
+          Make <span className="chip__long">this </span>B
+        </button>
+        <button className="chip" title="New random B" onClick={onNewB}>
+          New B
+        </button>
       </>
     );
   } else if (mode === "canvas") {
     context = (
-      <>
-        <Segmented
-          label="Canvas layout"
-          options={CANVAS_LAYOUTS}
-          value={canvasLayout}
-          onChange={onCanvasLayout}
-          quiet
-        />
-        <button
-          className="chip chip--zoom"
-          title="Reset view"
-          onClick={onResetView}
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-      </>
+      <button
+        className="chip chip--zoom"
+        title="Reset view"
+        onClick={onResetView}
+      >
+        {Math.round(zoom * 100)}%
+      </button>
     );
-  } else {
+  } else if (grouped) {
     context = (
       <>
         <OptionMenu
-          title="Table layout"
-          label={TABLE_LAYOUTS.find((l) => l.id === tableLayout).label}
-          options={TABLE_LAYOUTS}
-          value={tableLayout}
-          onChange={onTableLayout}
+          title="Group by"
+          label={
+            <>
+              <span className="chip__label">by</span> {GROUPINGS[groupBy].label}
+            </>
+          }
+          options={Object.entries(GROUPINGS).map(([id, g]) => ({
+            id,
+            label: g.label,
+          }))}
+          value={groupBy}
+          onChange={onGroupBy}
         />
-        {grouped ? (
-          <>
-            <OptionMenu
-              title="Group by"
-              label={
-                <>
-                  <span className="chip__label">by</span>{" "}
-                  {GROUPINGS[groupBy].label}
-                </>
-              }
-              options={Object.entries(GROUPINGS).map(([id, g]) => ({
-                id,
-                label: g.label,
-              }))}
-              value={groupBy}
-              onChange={onGroupBy}
-            />
-            <MenuButton
-              label={<Ellipsis className="chip__icon" />}
-              title="More"
-              caret={false}
-            >
-              {(close) => (
-                <MenuItem onSelect={onToggleAllGroups} close={close}>
-                  {allGroupsClosed ? "Expand all" : "Collapse all"}
-                </MenuItem>
-              )}
-            </MenuButton>
-          </>
-        ) : (
-          <SortMenu sort={sort} onSort={onSort} />
-        )}
+        <MenuButton
+          label={<Ellipsis className="chip__icon" />}
+          title="More"
+          caret={false}
+        >
+          {(close) => (
+            <MenuItem onSelect={onToggleAllGroups} close={close}>
+              {allGroupsClosed ? "Expand all" : "Collapse all"}
+            </MenuItem>
+          )}
+        </MenuButton>
       </>
     );
+  } else {
+    context = <SortMenu sort={sort} onSort={onSort} />;
   }
 
   return (
     <nav className="top-bar">
-      <MorphStage contentKey={focus ? "back" : "modes"}>
-        {focus ? (
-          <button
-            className="chip chip--back"
-            title="Back (Esc)"
-            onClick={onBack}
-          >
-            <ArrowLeft className="chip__icon" />{" "}
-            <span className="chip__text">{modeLabel}</span>
-          </button>
-        ) : (
-          <Segmented
-            label="Mode"
-            options={MODES}
-            value={mode}
-            onChange={onModeChange}
-          />
-        )}
+      <button
+        className={`chip chip--mark${about ? " chip--mark-active" : ""}`}
+        title="About GPS"
+        aria-pressed={about}
+        onClick={onAbout}
+      >
+        gps
+        <span className="chip__dot" />
+      </button>
+      <span className="top-bar__divider" />
+      <MorphStage contentKey="view">
+        <ViewPicker
+          group={group}
+          layout={layout}
+          onView={onView}
+          label={about ? "About GPS" : undefined}
+        />
       </MorphStage>
       <MorphStage contentKey={contextKey} className="top-bar__stage--context">
         {context}
@@ -1532,15 +2112,11 @@ function TopBar({
 
 /* ---------- App ---------- */
 
-const MODES = [
-  { id: "canvas", label: "Canvas" },
-  { id: "table", label: "Table" },
-];
-
 const START_CAMERA = { x: 0, y: 0, zoom: 1 };
 
 function App() {
-  const [mode, setMode] = useState(MODES[0].id);
+  // "canvas", "table", "breed" or "blend": what sits under Focus
+  const [mode, setMode] = useState("canvas");
   const [canvasLayout, setCanvasLayout] = useState(CANVAS_LAYOUTS[0].id);
   const [camera, setCamera] = useState(START_CAMERA);
   const [tableLayout, setTableLayout] = useState(TABLE_LAYOUTS[0].id);
@@ -1548,29 +2124,52 @@ function App() {
   const [groupBy, setGroupBy] = useState("day");
   const [closedGroups, setClosedGroups] = useState(new Set());
   const [focusLayout, setFocusLayout] = useState(FOCUS_LAYOUTS[0].id);
-  // The output open in Focus, and the ones looked at before it
+  // The About GPS page, opened from the mark at the left of the bar
+  const [about, setAbout] = useState(false);
+  // Every output visited in Focus, as a tree: { nodes: [{ id, output, parent }], current }
   const [focus, setFocus] = useState(null);
+  const path = focus ? focusPath(focus) : [];
+  const focused = focus && {
+    output: path.at(-1).output,
+    trail: path.slice(0, -1).map((n) => n.output),
+  };
 
-  const openFocus = (output) => setFocus({ output, trail: [] });
-  const focusOn = (output) =>
-    setFocus((prev) => ({ output, trail: [...prev.trail, prev.output] }));
-  const jumpTo = (index) =>
-    setFocus((prev) => ({
-      output: prev.trail[index],
-      trail: prev.trail.slice(0, index),
-    }));
-
-  // Esc leaves Focus; 1–4 pick a Focus layout
+  // The output Focus reopens on when it's picked from the view menu
+  const lastFocused = useRef(makeOutput(0, 0));
   useEffect(() => {
-    if (!focus) return;
+    if (focus) lastFocused.current = focus.nodes[focus.current].output;
+  }, [focus]);
+
+  const openFocus = (output) =>
+    setFocus({ nodes: [{ id: 0, output, parent: null }], current: 0 });
+  // Stepping to an output already reached from here reuses that branch
+  const focusOn = (output) =>
+    setFocus(({ nodes, current }) => {
+      const existing = nodes.find(
+        (n) => n.parent === current && n.output.id === output.id
+      );
+      if (existing) return { nodes, current: existing.id };
+      const id = nodes.length;
+      return {
+        nodes: [...nodes, { id, output, parent: current }],
+        current: id,
+      };
+    });
+  const goTo = (id) => setFocus((prev) => ({ ...prev, current: id }));
+  const jumpTo = (index) =>
+    setFocus((prev) => ({ ...prev, current: focusPath(prev)[index].id }));
+
+  // Esc closes About, then leaves Focus
+  useEffect(() => {
+    if (!focus && !about) return;
     const handleKeyDown = (e) => {
-      if (e.key === "Escape") setFocus(null);
-      const layout = FOCUS_LAYOUTS[Number(e.key) - 1];
-      if (layout) setFocusLayout(layout.id);
+      if (e.key !== "Escape") return;
+      if (about) setAbout(false);
+      else setFocus(null);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focus]);
+  }, [focus, about]);
 
   const groupKey = (key) => `${groupBy}:${key}`;
   const groupKeys = groupOutputs(TABLE_OUTPUTS, groupBy).map((g) =>
@@ -1594,22 +2193,106 @@ function App() {
       return next;
     });
 
-  const changeMode = (id) => {
+  const [breed, setBreed] = useState(() => ({
+    generations: [firstGeneration()],
+    mutation: MUTATIONS[1].id,
+  }));
+  const [blend, setBlend] = useState(() => ({
+    a: randomOutput(1),
+    b: randomOutput(2),
+    t: 0.5,
+    draws: 2,
+  }));
+
+  const updateGeneration = (update) =>
+    setBreed((prev) => ({
+      ...prev,
+      generations: [
+        ...prev.generations.slice(0, -1),
+        update(prev.generations.at(-1)),
+      ],
+    }));
+  const togglePick = (id) =>
+    updateGeneration((g) => ({
+      ...g,
+      picked: g.picked.includes(id)
+        ? g.picked.filter((p) => p !== id)
+        : [...g.picked, id],
+    }));
+  const breedNext = () =>
+    setBreed((prev) => {
+      const last = prev.generations.at(-1);
+      if (!last.picked.length) return prev;
+      return {
+        ...prev,
+        generations: [...prev.generations, nextGeneration(last, prev.mutation)],
+      };
+    });
+  const rewind = (n) =>
+    setBreed((prev) => ({
+      ...prev,
+      generations: prev.generations.slice(0, n + 1),
+    }));
+  // The blend under the scrubber becomes one end, and the scrubber recentres
+  const setBlendEnd = (end) =>
+    setBlend((prev) => ({ ...prev, [end]: blendAt(prev, prev.t), t: 0.5 }));
+  const newB = () =>
+    setBlend((prev) => ({
+      ...prev,
+      b: randomOutput(prev.draws + 1),
+      draws: prev.draws + 1,
+    }));
+
+  const resetView = () =>
+    setCamera(canvasLayout === "parameter-map" ? fitMapCamera() : START_CAMERA);
+
+  const changeView = (group, layout) => {
+    setAbout(false);
+    if (group === "make") {
+      setFocus(null);
+      setMode(layout);
+      return;
+    }
+    if (group === "focus") {
+      setFocusLayout(layout);
+      if (!focus) openFocus(lastFocused.current);
+      return;
+    }
     setFocus(null);
-    setMode(id);
+    setMode(group);
+    if (group === "table") setTableLayout(layout);
+    if (group !== "canvas") return;
+    // The map is a bounded square, so frame it whenever it's entered or left
+    if (layout === "parameter-map" || canvasLayout === "parameter-map")
+      setCamera(layout === "parameter-map" ? fitMapCamera() : START_CAMERA);
+    setCanvasLayout(layout);
   };
 
   return (
     <main className="app">
       {/* Kept mounted under Focus so the canvas position and table state survive */}
-      {mode === "canvas" ? (
+      {mode === "canvas" && (
         <CanvasMode
           onOpen={openFocus}
           layoutId={canvasLayout}
           camera={camera}
           setCamera={setCamera}
         />
-      ) : (
+      )}
+      {mode === "breed" && (
+        <BreedMode
+          generations={breed.generations}
+          onToggle={togglePick}
+          onRewind={rewind}
+        />
+      )}
+      {mode === "blend" && (
+        <BlendMode
+          blend={blend}
+          onScrub={(t) => setBlend((prev) => ({ ...prev, t }))}
+        />
+      )}
+      {mode === "table" && (
         <TableMode
           onOpen={openFocus}
           paused={Boolean(focus)}
@@ -1623,23 +2306,25 @@ function App() {
       )}
       {focus && (
         <FocusMode
-          output={focus.output}
+          output={focused.output}
           layoutId={focusLayout}
           onFocus={focusOn}
+          lineage={{ ...focus, onGoTo: goTo }}
         />
       )}
+      {about && <AboutPage />}
       <TopBar
         mode={mode}
-        onModeChange={changeMode}
-        focus={focus}
-        onBack={() => setFocus(null)}
+        about={about}
+        onAbout={() => setAbout((open) => !open)}
+        focus={focused}
+        onView={changeView}
+        onClose={() => (about ? setAbout(false) : setFocus(null))}
         onJump={jumpTo}
         canvasLayout={canvasLayout}
-        onCanvasLayout={setCanvasLayout}
         zoom={camera.zoom}
-        onResetView={() => setCamera(START_CAMERA)}
+        onResetView={resetView}
         tableLayout={tableLayout}
-        onTableLayout={setTableLayout}
         sort={sort}
         onSort={setSort}
         groupBy={groupBy}
@@ -1647,7 +2332,11 @@ function App() {
         allGroupsClosed={allGroupsClosed}
         onToggleAllGroups={toggleAllGroups}
         focusLayout={focusLayout}
-        onFocusLayout={setFocusLayout}
+        breed={breed}
+        onMutation={(mutation) => setBreed((prev) => ({ ...prev, mutation }))}
+        onBreed={breedNext}
+        onBlendEnd={setBlendEnd}
+        onNewB={newB}
       />
     </main>
   );

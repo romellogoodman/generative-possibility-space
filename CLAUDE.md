@@ -10,12 +10,14 @@ React 19 + Vite + SCSS, no router or state library. Deployed on Vercel at gps.ro
 Everything lives in two files on purpose (fast prototyping). Split them only when asked.
 
 - `src/App.jsx`, by section comment:
-  - top: `hash` / `makeOutput` (`src/App.jsx:10`) — outputs are deterministic from their grid position
-  - Canvas mode (`src/App.jsx:124`) — infinite pan/zoom canvas, layouts Staggered and Contact sheet
-  - Table mode (`src/App.jsx:292`) — Spreadsheet, Cards, Split, Grouped
-  - Focus mode (`src/App.jsx:710`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials
-  - Top bar (`src/App.jsx:1207`) — the only chrome: one floating pill that morphs per mode
-  - App (`src/App.jsx:1508`) — owns all view state (mode, layouts, sort, camera, focus + trail) and passes it down
+  - top: `hash` / `makeOutput` (`src/App.jsx:19`) — outputs are deterministic from their grid position; `seededOutput` for ones made from a seed (variations, children, blends)
+  - Canvas mode (`src/App.jsx:123`) — infinite pan/zoom canvas, layouts Staggered, Contact sheet and Parameter map (a bounded square where position is size × shade)
+  - Table mode (`src/App.jsx:387`) — Spreadsheet, Cards, Split, Grouped
+  - Focus mode (`src/App.jsx:825`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials, Lineage. Everything visited is a tree; the trail is its path
+  - Make new ones (`src/App.jsx:1443`) — Breed (pick, breed the next generation) and Blend (scrub from A to B)
+  - About (`src/App.jsx:1629`) — the About GPS page, opened from the `gps` mark; for now just the repo link
+  - Top bar (`src/App.jsx:1654`) — the only chrome: one floating pill; the `gps` mark (opens About), then a view picker on the left (every view, in four columns, with a line each), the current view's controls on the right
+  - App (`src/App.jsx:2112`) — owns all view state (mode, layouts, sort, camera, focus tree, breed, blend, about) and passes it down
 - `src/App.scss` — same sections; theme tokens on `:root`, light theme via `prefers-color-scheme`
 - `.orcc/` — design record from orcc sessions (decisions, mockups); not app code
 
