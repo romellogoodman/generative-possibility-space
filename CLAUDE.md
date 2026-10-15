@@ -7,18 +7,20 @@ React 19 + Vite + SCSS, no router or state library. Deployed on Vercel at gps.ro
 
 ## Map
 
-Everything lives in two files on purpose (fast prototyping). Split them only when asked.
+One folder per part of the app. Each component file imports its own `.scss` beside it, and
+`.js` files hold the plain data and helpers.
 
-- `src/App.jsx`, by section comment:
-  - top: `hash` / `makeOutput` (`src/App.jsx:19`) — outputs are deterministic from their grid position; `seededOutput` for ones made from a seed (variations, children, blends)
-  - Canvas mode (`src/App.jsx:129`) — infinite pan/zoom canvas, layouts Staggered, Contact sheet and Parameter map (a bounded square where position is size × shade)
-  - Table mode (`src/App.jsx:398`) — Spreadsheet, Cards, Split, Grouped
-  - Focus mode (`src/App.jsx:836`) — one output plus variations from `vary`; layouts Strip, Compass, Inspector, Dials, Lineage. Everything visited is a tree that outlives Focus; the trail is its path
-  - Make new ones (`src/App.jsx:1463`) — Breed (pick, breed the next generation) and Blend (scrub from A to B)
-  - About (`src/App.jsx:1649`) — the About GPS page, opened from the `gps` mark; what the squares are, the install prompt, thanks
-  - Top bar (`src/App.jsx:1729`) — the only chrome: one floating pill; the `gps` mark (opens About), then a view picker on the left (every view, in four columns, with a line each), the current view's controls on the right
-  - App (`src/App.jsx:2267`) — owns all view state (mode, layouts, sort, camera, focus tree, breed, blend, about) and passes it down
-- `src/App.scss` — same sections; theme tokens on `:root`, light theme via `prefers-color-scheme`
+- `src/App.jsx` — owns all view state (mode, layouts, sort, camera, focus tree, breed, blend, about) and passes it down. It imports `App.scss` first, then each part, so the CSS keeps the original order.
+- `src/App.scss` — theme tokens on `:root` (light theme via `prefers-color-scheme`), plus shared pieces: `.output`, `.frame`, `.score`, `.meter`, `.thumb`
+- `src/lib/outputs.js` — `hash` / `makeOutput` (deterministic from a grid position), `seededOutput` (variations, children, blends), formatters, and `vary` / `nearby`
+- `src/components/Output.jsx` — `Output`, `Score`, `Frame`, `Delta`
+- `src/canvas/` — `CanvasMode.jsx` (infinite pan/zoom canvas), `layouts.js` (Staggered, Contact sheet, Parameter map), `camera.js` (zoom, the parameter map's geometry, `outputFromId`)
+- `src/table/` — `TableMode.jsx`, `layouts.jsx` (Spreadsheet, Cards, Split, Grouped), `views.js` (the list the picker shows), `data.jsx` (sorting and grouping)
+- `src/focus/` — `FocusMode.jsx` (plus `Trail`), `layouts.jsx` (Strip, Compass, Inspector, Dials, Lineage), `views.js`, `tree.js` (everything visited is a tree that outlives Focus; the trail is its path)
+- `src/make/` — `BreedMode.jsx` + `breed.js` (pick, breed the next generation), `BlendMode.jsx` + `blend.js` (scrub from A to B)
+- `src/about/AboutPage.jsx` — opened from the `gps` mark: what the squares are, the install prompt, thanks
+- `src/topbar/` — `TopBar.jsx`, the only chrome: one floating pill with the `gps` mark, the view picker (`VIEW_GROUPS`: every view in four columns, a line each) and the current view's controls; `Menu.jsx` (`MenuButton`, `MenuItem`, `OptionMenu`)
+- `skills/gps/` — the GPS Claude Code skill (`SKILL.md`) and its catalog of views (`patterns.md`)
 - `.orcc/` — design record from orcc sessions (decisions, mockups); not app code
 
 ## Conventions
@@ -34,5 +36,5 @@ Everything lives in two files on purpose (fast prototyping). Split them only whe
 npm run lint
 npm run format:check
 npm run build
-npm run dev   # http://localhost:8080 — check Canvas, Table, Focus at desktop and ~390px wide
+npm run dev   # http://localhost:8080 — switch views from the picker at desktop and ~390px wide
 ```

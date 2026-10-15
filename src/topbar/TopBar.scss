@@ -1,0 +1,313 @@
+.top-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100vw - 32px);
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bar-background);
+  box-shadow: var(--bar-shadow);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px) saturate(1.2);
+
+  &__divider {
+    flex: none;
+    width: 1px;
+    height: 16px;
+    background: var(--color-line);
+  }
+
+  &__stage {
+    position: relative;
+    flex: none;
+    // MorphStage sets the width to the panel's; padding goes on top of it, not inside
+    box-sizing: content-box;
+    height: 32px;
+    overflow: hidden;
+    border-radius: 999px;
+    transition: width 380ms var(--ease-morph);
+
+    &--context {
+      flex-shrink: 1;
+      min-width: 0;
+      padding-left: 5px;
+
+      // Divider between the mode switch and the mode's controls
+      &::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: 0;
+        width: 1px;
+        background: var(--color-line);
+      }
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: max-content;
+    height: 32px;
+    white-space: nowrap;
+    animation: panel-in 380ms var(--ease-morph) both;
+  }
+
+  &__stage--context &__panel {
+    left: 5px;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(5px);
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--color-text);
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+  }
+
+  &__label {
+    color: var(--color-text-light);
+  }
+
+  &__caret {
+    display: inline-flex;
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  &__icon {
+    font-size: 15px;
+  }
+
+  &--action,
+  &--action:hover {
+    background: var(--color-highlight);
+    color: #fff;
+    box-shadow: none;
+    font-weight: 500;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &__count {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 25%);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  &__thumb {
+    width: 20px;
+  }
+
+  &--zoom-step {
+    padding: 0 7px;
+    color: var(--color-text-light);
+  }
+
+  // Back out of Focus or About, naming where you land
+  &--back {
+    padding: 0 12px 0 10px;
+  }
+
+  &--zoom {
+    color: var(--color-text-light);
+    font: 12px var(--font-mono);
+  }
+
+  // The gps mark leads the bar and opens About
+  &--mark {
+    flex: none;
+    gap: 5px;
+    padding: 0 10px 0 12px;
+    font: 600 13px var(--font-mono);
+  }
+
+  &--mark-active {
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-highlight);
+  }
+
+  // The view picker leads the bar, filled like the active choice it names
+  &--view,
+  &--view:hover,
+  &--view[aria-expanded="true"] {
+    padding: 0 11px 0 14px;
+    background: var(--color-text);
+    color: var(--color-bg);
+    box-shadow: none;
+    font-weight: 500;
+  }
+}
+
+// Lucide icons in the bar and its menus take their size from font-size
+.top-bar svg,
+.menu svg {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+.sort-icon {
+  font-size: 12px;
+}
+
+.top-bar .trail {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+}
+
+.menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 30%),
+    0 0 0 1px var(--color-line);
+  animation: menu-in 160ms var(--ease-morph);
+
+  &__title {
+    padding: 6px 10px 4px;
+    color: var(--color-text-light);
+    font-size: 11px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-unit);
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 8px;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--color-line);
+      outline: none;
+    }
+  }
+
+  // Groups side by side; one column on narrow screens
+  &--views {
+    display: grid;
+    grid-template-columns: repeat(4, 224px);
+    gap: 0 4px;
+    overflow-y: auto;
+  }
+
+  &--views &__item {
+    align-items: flex-start;
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-weight: 500;
+  }
+
+  &__description {
+    color: var(--color-text-light);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  // No check column here: the current view is tinted instead
+  &--views &__check {
+    display: none;
+  }
+
+  &--views &__item[aria-checked="true"] {
+    background: color-mix(in srgb, var(--color-highlight) 16%, transparent);
+  }
+
+  &__check {
+    display: inline-flex;
+    flex: none;
+    width: 12px;
+    font-size: 12px;
+    color: var(--color-highlight);
+  }
+
+  &__hint {
+    display: inline-flex;
+    margin-left: auto;
+    color: var(--color-text-light);
+    font: 11px var(--font-mono);
+  }
+}
+
+@media (max-width: 760px) {
+  .menu--views {
+    grid-template-columns: min(320px, calc(100vw - 16px));
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@media (max-width: 480px) {
+  .chip,
+  .chip--view,
+  .chip--view:hover,
+  .chip--view[aria-expanded="true"] {
+    padding: 0 8px;
+  }
+
+  .chip__label,
+  .chip__long,
+  .chip--back .chip__text {
+    display: none;
+  }
+
+  // Only the latest steps of the trail fit on a phone
+  .top-bar .trail__step:nth-last-child(n + 4) {
+    display: none;
+  }
+}
