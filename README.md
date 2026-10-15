@@ -27,3 +27,16 @@ npm run preview       # Preview production build
 ```
 
 See [CLAUDE.md](CLAUDE.md) for a map of the code and project conventions.
+
+## Use GPS on your own outputs
+
+[`skills/gps`](skills/gps) is a Claude Code skill. It adds these views to a project that
+generates outputs, using your real outputs and settings instead of grey squares. To
+install it, run this from your project:
+
+```bash
+npx degit romellogoodman/generative-possibility-space/skills/gps .claude/skills/gps
+```
+
+Then run `/gps` in Claude Code, or ask it to "add GPS views to this project".
+[patterns.md](skills/gps/patterns.md) lists every view and what it needs.

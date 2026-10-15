@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpRight,
   Check,
+  Copy,
   ChevronDown,
   ChevronRight,
   Ellipsis,
@@ -1630,8 +1632,29 @@ function BlendMode({ blend, onScrub }) {
 
 const REPO_URL =
   "https://github.com/romellogoodman/generative-possibility-space";
+const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
 
-// For now just the repo; the overview and install steps come with the skill
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      className="about__copy"
+      onClick={() =>
+        navigator.clipboard?.writeText(text).then(() => setCopied(true))
+      }
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+// What GPS is, and the prompt that adds its views to someone's own project
 function AboutPage() {
   return (
     <div className="about">
@@ -1646,7 +1669,26 @@ function AboutPage() {
         >
           Github
         </a>
-        <p className="about__soon">More coming soon.</p>
+        <section className="about__install">
+          <h2 className="about__heading">Use it on your own outputs</h2>
+          <p className="about__text">
+            Paste this into Claude Code in the project that makes your outputs.
+            It installs the GPS skill, asks which settings matter, and adds
+            these views using your real outputs.
+          </p>
+          <div className="about__prompt">
+            <code>{INSTALL_PROMPT}</code>
+            <CopyButton text={INSTALL_PROMPT} />
+          </div>
+          <a
+            className="about__link"
+            href={`${REPO_URL}/blob/main/skills/gps/patterns.md`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Every view and what it needs <ArrowUpRight />
+          </a>
+        </section>
       </article>
     </div>
   );
