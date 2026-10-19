@@ -24,11 +24,17 @@ const newBreed = (example, mutation = MUTATIONS[1].id) => ({
   mutation,
 });
 
+// A random other end for Blend, sharing what the example keeps across a blend (Asemica's
+// Composition) with `end`; `draws` counts the draws so far
+function partner(example, end, draws) {
+  let other = example.randomOutput(++draws, end);
+  while (other.id === end.id) other = example.randomOutput(++draws, end);
+  return { other, draws };
+}
+
 function newBlend(example) {
-  let draws = 2;
   const a = example.randomOutput(1);
-  let b = example.randomOutput(draws);
-  while (b.id === a.id) b = example.randomOutput(++draws);
+  const { other: b, draws } = partner(example, a, 1);
   return { a, b, t: 0.5, draws };
 }
 
@@ -106,8 +112,8 @@ function App() {
   }, [focus, about]);
 
   const groupKey = (key) => `${groupBy}:${key}`;
-  const groupKeys = groupOutputs(example.tableOutputs, groupBy).map((g) =>
-    groupKey(g.key)
+  const groupKeys = groupOutputs(example.tableOutputs, groupBy, example).map(
+    (g) => groupKey(g.key)
   );
   const allGroupsClosed = groupKeys.every((key) => closedGroups.has(key));
   const toggleGroup = (key) =>
@@ -162,11 +168,10 @@ function App() {
   const setBlendEnd = (end) =>
     setBlend((prev) => ({ ...prev, [end]: blendAt(prev, prev.t), t: 0.5 }));
   const newB = () =>
-    setBlend((prev) => ({
-      ...prev,
-      b: example.randomOutput(prev.draws + 1),
-      draws: prev.draws + 1,
-    }));
+    setBlend((prev) => {
+      const { other, draws } = partner(example, prev.a, prev.draws);
+      return { ...prev, b: other, draws };
+    });
 
   // Send the output in Focus on to Blend or Breed
   const handOff = (to) => {
@@ -181,7 +186,17 @@ function App() {
           )
         )
       );
-    else setBlend((prev) => ({ ...prev, [to]: output, t: 0.5 }));
+    else
+      setBlend((prev) => {
+        const next = { ...prev, [to]: output, t: 0.5 };
+        // An other end that can't blend with this one is redrawn so it can
+        const end = to === "a" ? "b" : "a";
+        if (example.matches && !example.matches(output, prev[end])) {
+          const { other, draws } = partner(example, output, prev.draws);
+          Object.assign(next, { [end]: other, draws });
+        }
+        return next;
+      });
     closeFocus();
     setMode(to === "breed" ? "breed" : "blend");
   };
@@ -276,7 +291,7 @@ function App() {
   };
 
   return (
-    <main className="app">
+    <main className="app" style={{ "--cell-aspect": example.cellAspect }}>
       {/* Kept mounted under Focus so the canvas position and table state survive */}
       {mode === "canvas" && (
         <CanvasMode

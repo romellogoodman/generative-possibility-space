@@ -73,21 +73,24 @@ export function zoomAround(camera, zoom, screenX, screenY) {
   return { x: worldX - screenX / next, y: worldY - screenY / next, zoom: next };
 }
 
+// The width and height of a canvas cell `size` across its longer side, in the example's shape
+export const cellBox = (size, aspect = 1) =>
+  aspect < 1
+    ? { width: size * aspect, height: size }
+    : { width: size, height: size / aspect };
+
 // Cells covering the visible area plus a margin, so panning never shows gaps
 export function visibleCells(
   camera,
   width,
   height,
-  cellSize,
+  { width: cellW, height: cellH },
   make = makeOutput
 ) {
-  const padding = cellSize;
-  const startX = Math.floor((camera.x - padding) / cellSize);
-  const endX = Math.ceil((camera.x + width / camera.zoom + padding) / cellSize);
-  const startY = Math.floor((camera.y - padding) / cellSize);
-  const endY = Math.ceil(
-    (camera.y + height / camera.zoom + padding) / cellSize
-  );
+  const startX = Math.floor((camera.x - cellW) / cellW);
+  const endX = Math.ceil((camera.x + width / camera.zoom + cellW) / cellW);
+  const startY = Math.floor((camera.y - cellH) / cellH);
+  const endY = Math.ceil((camera.y + height / camera.zoom + cellH) / cellH);
 
   const cells = [];
   for (let gx = startX; gx <= endX; gx++) {

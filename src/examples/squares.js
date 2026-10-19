@@ -49,6 +49,8 @@ export const SQUARES = {
   label: "Grey squares",
   // Every view works with the squares
   views: null,
+  // The shape (width / height) views give the cells they lay outputs in
+  cellAspect: 1,
   settings: [
     numeric("size", "Size", SIZE_RANGE),
     numeric("shade", "Shade", SHADE_RANGE, { meter: (o) => o.shade }),
@@ -69,7 +71,8 @@ export const SQUARES = {
           key: output.id,
           left: i * cellSize,
           top: j * cellSize,
-          size: cellSize,
+          width: cellSize,
+          height: cellSize,
           output,
         })
       ),

@@ -311,7 +311,13 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: clamp(6px, 1.4vmin, 14px);
-    width: min(100cqw - 44px, 100cqh - 96px, 660px);
+    // Tall cells (a --cell-aspect under 1) make the grid narrower so its height still fits;
+    // each cell is 8% padding plus a frame in that shape
+    width: min(
+      100cqw - 44px,
+      (100cqh - 96px) / (0.08 + 0.92 / var(--cell-aspect, 1)),
+      660px
+    );
   }
 
   &__cell {

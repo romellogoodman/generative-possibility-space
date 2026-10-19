@@ -133,6 +133,7 @@ export function CompassLayout({ output, onFocus, example }) {
                     key={output.id}
                     output={output}
                     className="frame--pop"
+                    box={example.cellAspect}
                   />
                 </div>
               );
@@ -144,7 +145,12 @@ export function CompassLayout({ output, onFocus, example }) {
                   className="focus-compass__cell"
                   aria-hidden="true"
                 >
-                  <div className="frame frame--edge">end of range</div>
+                  <div
+                    className="frame frame--edge"
+                    style={{ aspectRatio: example.cellAspect }}
+                  >
+                    end of range
+                  </div>
                 </div>
               );
             }
@@ -158,7 +164,7 @@ export function CompassLayout({ output, onFocus, example }) {
                 <span className="focus-compass__arrow">
                   {COMPASS_ARROWS[dir]}
                 </span>
-                <Frame output={variation} />
+                <Frame output={variation} box={example.cellAspect} />
               </button>
             );
           })}
@@ -213,7 +219,9 @@ export function InspectorLayout({ output, onFocus, example }) {
                 <dt>{s.label}</dt>
                 <dd className="focus-inspector__value">
                   <span className="data-table__mono">{s.text(output)}</span>
-                  {s.position && <RangeMeter at={s.position(output)} />}
+                  {s.position?.(output) != null && (
+                    <RangeMeter at={s.position(output)} />
+                  )}
                 </dd>
               </Fragment>
             ))}
@@ -341,7 +349,9 @@ export function DialsLayout({ output, onFocus, example }) {
               >
                 <span>{track.min}</span>
                 <span className="dial__bar">
-                  <i style={{ left: `${track.at * 100}%` }} />
+                  {track.at !== null && (
+                    <i style={{ left: `${track.at * 100}%` }} />
+                  )}
                 </span>
                 <span>{track.max}</span>
               </div>

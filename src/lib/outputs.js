@@ -12,9 +12,17 @@ export function hash(x, y, seed = 0) {
 // Where the image assets live: the gps-assets R2 bucket's public address
 const ASSETS_URL = "https://pub-997b197b1d4547cab5898c0fda1d12fb.r2.dev";
 
-// A token's two images, both from its id: a small preview (333x400 WebP, made by
-// scripts/fidenza-previews.mjs) for grids, and the full 2000x2400 PNG from Art Blocks
-export const previewUrl = (token) => `${ASSETS_URL}/fidenza/${token.id}.webp`;
+// The Art Blocks thumbnail of a token: about 1000 px on the long side, a PNG
+export const thumbUrl = (token) =>
+  `https://media.artblocks.io/thumb/${token.id}.png`;
+
+// A token's two images, both from its id: a small preview for grids (400 px on the long side,
+// a WebP in the bucket folder its project names, made by scripts/previews.mjs; a project with
+// no folder uses the Art Blocks thumbnail), and the full-size PNG from Art Blocks
+export const previewUrl = (token) =>
+  token.bucket
+    ? `${ASSETS_URL}/${token.bucket}/${token.id}.webp`
+    : thumbUrl(token);
 export const fullUrl = (token) =>
   `https://media-proxy.artblocks.io/1/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/${token.id}.png`;
 

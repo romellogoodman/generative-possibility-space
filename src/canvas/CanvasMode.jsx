@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Output, Score } from "../components/Output.jsx";
 import { describe } from "../examples/index.js";
-import { MAP_SIZE, zoomAround, visibleCells } from "./camera.js";
+import { MAP_SIZE, zoomAround, visibleCells, cellBox } from "./camera.js";
 import { CANVAS_LAYOUTS, CAPTION_ZOOM } from "./layouts.js";
 import "./CanvasMode.scss";
 
@@ -123,7 +123,9 @@ export function CanvasMode({
     if (target) onOpen(example.fromId(target.dataset.id));
   };
 
-  const { cellSize } = layout;
+  // Cells take the example's shape; the longer side is the layout's cell size
+  const box = example.cellAspect;
+  const cellSize = layout.cellSize && cellBox(layout.cellSize, box);
   const cells = layout.mapped
     ? []
     : visibleCells(
@@ -160,7 +162,7 @@ export function CanvasMode({
           {cells.map((cell) => {
             const columnOffset =
               layout.stagger && Math.abs(cell.gridX) % 2 === 1
-                ? cellSize / 2
+                ? cellSize.height / 2
                 : 0;
             const output = fixedSize ? { ...cell, size: fixedSize } : cell;
             return (
@@ -168,13 +170,13 @@ export function CanvasMode({
                 key={`${layoutId}:${cell.gridX},${cell.gridY}`}
                 className={`infinite-canvas__cell${cell.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
                 style={{
-                  left: cell.gridX * cellSize,
-                  top: cell.gridY * cellSize + columnOffset,
-                  width: cellSize,
-                  height: cellSize,
+                  left: cell.gridX * cellSize.width,
+                  top: cell.gridY * cellSize.height + columnOffset,
+                  width: cellSize.width,
+                  height: cellSize.height,
                 }}
               >
-                <Output output={output} />
+                <Output output={output} box={box} />
                 {showCaptions && (
                   <span className="infinite-canvas__caption">
                     #{cell.seed} <Score value={cell.score} />
@@ -189,14 +191,14 @@ export function CanvasMode({
               style={{ width: MAP_SIZE, height: MAP_SIZE }}
             />
           )}
-          {mapCells.map(({ key, left, top, size, output }) => (
+          {mapCells.map(({ key, left, top, width, height, output }) => (
             <div
               key={key}
               className={`infinite-canvas__cell${output.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
               title={`#${output.seed} · ${describe(example, output)}`}
-              style={{ left, top, width: size, height: size }}
+              style={{ left, top, width, height }}
             >
-              <Output output={output} scale={0.9} />
+              <Output output={output} scale={0.9} box={box} />
             </div>
           ))}
         </div>

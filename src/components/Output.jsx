@@ -38,10 +38,10 @@ function TokenImage({ token, full }) {
   );
 }
 
-// Stand-in for a generative output
-export function Output({ output, scale = 1, full = false }) {
+// Stand-in for a generative output. `box` is the shape (width / height) of the cell it sits in.
+export function Output({ output, scale = 1, full = false, box = 1 }) {
   if (output.token) {
-    // Keep the image's own shape inside the square: the longer side gets the size
+    // Keep the image's own shape inside the box: the side it reaches first gets the size
     const { aspect } = output.token;
     const side = output.size * 100 * scale;
     return (
@@ -49,8 +49,8 @@ export function Output({ output, scale = 1, full = false }) {
         className="output output--image"
         data-id={output.id}
         style={{
-          width: `${aspect < 1 ? side * aspect : side}%`,
-          height: `${aspect < 1 ? side : side / aspect}%`,
+          width: `${aspect < box ? (side * aspect) / box : side}%`,
+          height: `${aspect < box ? side : (side * box) / aspect}%`,
         }}
       >
         <TokenImage token={output.token} full={full} />
@@ -79,10 +79,14 @@ export function Score({ value }) {
   );
 }
 
-export function Frame({ output, className = "", full = false }) {
+// An output on its backing; `box` gives the backing that shape instead of a square
+export function Frame({ output, className = "", full = false, box = 1 }) {
   return (
-    <div className={`frame ${className}`}>
-      <Output output={output} full={full} />
+    <div
+      className={`frame ${className}`}
+      style={box === 1 ? undefined : { aspectRatio: box }}
+    >
+      <Output output={output} full={full} box={box} />
     </div>
   );
 }

@@ -64,20 +64,19 @@ export const GROUPINGS = {
     order: (a, b) => "LMS".indexOf(a) - "LMS".indexOf(b),
     within: (a, b) => b.size - a.size,
   },
-  colors: {
-    label: "Colors",
-    key: (o) => o.traits.Colors,
-    title: (key) => key,
-    order: (a, b) => (a < b ? -1 : 1),
-    within: (a, b) => b.created - a.created,
-  },
 };
 
-export function groupOutputs(outputs, groupBy) {
-  const grouping = GROUPINGS[groupBy];
+// A grouping by id: the shared ones above, or one of the example's own families (Fidenza's Colors)
+export const groupingOf = (example, id) =>
+  example.families?.[id] ?? GROUPINGS[id];
+
+// Outputs a family doesn't describe (a null key) are left out of its groups
+export function groupOutputs(outputs, groupBy, example) {
+  const grouping = groupingOf(example, groupBy);
   const map = new Map();
   outputs.forEach((o) => {
     const key = grouping.key(o);
+    if (key === null) return;
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(o);
   });
