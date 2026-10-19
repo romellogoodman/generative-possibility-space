@@ -40,3 +40,14 @@ npx degit romellogoodman/generative-possibility-space/skills/gps .claude/skills/
 
 Then run `/gps` in Claude Code, or ask it to "add GPS views to this project".
 [patterns.md](skills/gps/patterns.md) lists every view and what it needs.
+
+## Credits
+
+GPS hosts two examples: the original grey squares, and Fidenza.
+
+[Fidenza](https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/78)
+is by [Tyler Hobbs](https://tylerxhobbs.com) (2021), via Art Blocks Curated. The images and
+metadata (names and traits for all 999 tokens) come from the Art Blocks token API at
+`token.artblocks.io`, saved in [`src/data/fidenza.json`](src/data/fidenza.json). The metadata is
+licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). GPS uses it
+non-commercially, as a demo.
