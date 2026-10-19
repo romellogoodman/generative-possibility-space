@@ -22,6 +22,8 @@ const MERIDIAN = {
   license: LICENSE_URL,
 };
 
+const ASEMICA = { project: `${PROJECTS_URL}/206` };
+
 const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
 
 function CopyButton({ text }) {
@@ -116,6 +118,22 @@ export function AboutPage() {
                   CC BY-NC 4.0
                 </a>
                 , non-commercial demo.
+              </p>
+            </li>
+            <li className="about__example">
+              <h3 className="about__example-name">Asemica</h3>
+              <p className="about__text">
+                980 real outputs in an invented script. Grid runs across, margin
+                runs down, and each output keeps its composition through Breed
+                and Blend.
+              </p>
+              <p className="about__credit">
+                Asemica by Emily Edelman, Dima Ofman and Andrew Badr, via{" "}
+                <a href={ASEMICA.project} target="_blank" rel="noreferrer">
+                  Art Blocks
+                </a>
+                . © the artists, shown as a non-commercial demo while we ask
+                their permission.
               </p>
             </li>
           </ol>

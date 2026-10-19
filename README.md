@@ -43,7 +43,7 @@ Then run `/gps` in Claude Code, or ask it to "add GPS views to this project".
 
 ## Credits
 
-GPS hosts three examples: the original grey squares, Fidenza and Meridian.
+GPS hosts four examples: the original grey squares, Fidenza, Meridian and Asemica.
 
 [Fidenza](https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/78)
 is by [Tyler Hobbs](https://tylerxhobbs.com) (2021), via Art Blocks Curated. The images and
@@ -58,6 +58,12 @@ metadata (names and traits for all 1,000 tokens) come from the same API, saved i
 [`src/data/meridian.json`](src/data/meridian.json), and are licensed
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). GPS uses them non-commercially,
 as a demo.
+
+[Asemica](https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/206)
+is by Emily Edelman, Dima Ofman and Andrew Badr, via Art Blocks Curated. Its metadata is saved in
+[`src/data/asemica.json`](src/data/asemica.json) and its images load from Art Blocks. It is © the
+artists, not openly licensed: GPS shows it as a non-commercial demo while we ask their
+permission, and will take it down if they'd rather it didn't.
 
 ## Image assets
 

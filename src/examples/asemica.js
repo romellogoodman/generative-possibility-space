@@ -2,11 +2,10 @@ import asemica from "../data/asemica.json";
 import { artBlocks } from "./artblocks.js";
 
 // Asemica by Emily Edelman, Dima Ofman and Andrew Badr: 980 real Art Blocks outputs, 4:5.
-// Local only: the example list leaves it out of the public build. Its previews are the Art Blocks
-// thumbnails, not files in the gps-assets bucket.
+// Its licence is plain copyright: it's shown while the artists are asked, and comes down if
+// they'd rather it didn't. Its previews are the Art Blocks thumbnails, not files in the bucket.
 
-// Pure, so a build that never lists Asemica drops this module and its catalog
-export const ASEMICA = /* @__PURE__ */ artBlocks({
+export const ASEMICA = artBlocks({
   id: "asemica",
   label: "Asemica",
   prefix: "a",

@@ -5,13 +5,7 @@ import { ASEMICA } from "./asemica.js";
 
 // The examples GPS hosts, in the order the settings menu lists them. Each one declares its
 // outputs, settings, neighbours and breed/blend rules; the views read everything from it.
-// Asemica is local only: `npm run dev` lists it, the public build leaves it out.
-export const EXAMPLES = [
-  SQUARES,
-  FIDENZA,
-  MERIDIAN,
-  ...(import.meta.env.DEV ? [ASEMICA] : []),
-];
+export const EXAMPLES = [SQUARES, FIDENZA, MERIDIAN, ASEMICA];
 
 export const DEFAULT_EXAMPLE = SQUARES.id;
 

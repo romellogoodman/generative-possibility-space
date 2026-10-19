@@ -37,5 +37,6 @@ Count each trait's values before choosing:
 - Read each token's `license` field.
 - **CC BY-NC 4.0 projects** (Fidenza, Meridian) get an entry and a credit line on About and in
   the README's Credits.
-- **"Copyright" projects** (Asemica) stay out of the public build (`import.meta.env.DEV`) and out
-  of the bucket, until the artists agree.
+- **"Copyright" projects** need the artists' OK. Asemica is public while they're asked, with a ©
+  credit, and loads the Art Blocks thumbnails instead of bucket previews; to take it down, drop
+  it from `EXAMPLES` and About.
