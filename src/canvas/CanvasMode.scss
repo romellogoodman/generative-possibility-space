@@ -91,3 +91,22 @@
     transform-origin: left top;
   }
 }
+
+// A named value on the map's edge: columns above the square, rows on its right
+.parameter-map__tick {
+  position: fixed;
+  z-index: 5;
+  color: var(--color-text-light);
+  font: 11px/1 var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+
+  &--x {
+    transform: translate(-50%, calc(-100% - 6px));
+  }
+
+  &--y {
+    writing-mode: vertical-rl;
+    transform: translate(6px, -50%);
+  }
+}

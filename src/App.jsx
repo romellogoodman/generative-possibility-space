@@ -1,23 +1,41 @@
 import { useState, useEffect } from "react";
 import "./App.scss";
-import { makeOutput } from "./lib/outputs.js";
+import { DEFAULT_EXAMPLE, exampleById, supports } from "./examples/index.js";
 import { fitMapCamera, zoomAround, START_CAMERA } from "./canvas/camera.js";
 import { CANVAS_LAYOUTS } from "./canvas/layouts.js";
 import { CanvasMode } from "./canvas/CanvasMode.jsx";
-import { TABLE_OUTPUTS, groupOutputs } from "./table/data.jsx";
+import { sortKeys, groupOutputs } from "./table/data.jsx";
 import { TABLE_LAYOUTS } from "./table/views.js";
 import { TableMode } from "./table/TableMode.jsx";
 import { focusPath } from "./focus/tree.js";
 import { FOCUS_LAYOUTS } from "./focus/views.js";
 import { FocusMode } from "./focus/FocusMode.jsx";
-import { MUTATIONS, firstGeneration, nextGeneration } from "./make/breed.js";
+import { MUTATIONS } from "./make/breed.js";
 import { BreedMode } from "./make/BreedMode.jsx";
-import { randomOutput, blendAt } from "./make/blend.js";
 import { BlendMode } from "./make/BlendMode.jsx";
 import { AboutPage } from "./about/AboutPage.jsx";
 import { TopBar } from "./topbar/TopBar.jsx";
 
+// A fresh Breed and Blend for an example
+const newBreed = (example, mutation = MUTATIONS[1].id) => ({
+  generations: [example.firstGeneration()],
+  // The generation on screen; later ones stay in the history until you breed again
+  current: 0,
+  mutation,
+});
+
+function newBlend(example) {
+  let draws = 2;
+  const a = example.randomOutput(1);
+  let b = example.randomOutput(draws);
+  while (b.id === a.id) b = example.randomOutput(++draws);
+  return { a, b, t: 0.5, draws };
+}
+
 function App() {
+  // Which example GPS shows, switched from the settings control in the top bar
+  const [exampleId, setExampleId] = useState(DEFAULT_EXAMPLE);
+  const example = exampleById(exampleId);
   // "canvas", "table", "breed" or "blend": what sits under Focus
   const [mode, setMode] = useState("canvas");
   const [canvasLayout, setCanvasLayout] = useState(CANVAS_LAYOUTS[0].id);
@@ -88,7 +106,7 @@ function App() {
   }, [focus, about]);
 
   const groupKey = (key) => `${groupBy}:${key}`;
-  const groupKeys = groupOutputs(TABLE_OUTPUTS, groupBy).map((g) =>
+  const groupKeys = groupOutputs(example.tableOutputs, groupBy).map((g) =>
     groupKey(g.key)
   );
   const allGroupsClosed = groupKeys.every((key) => closedGroups.has(key));
@@ -109,18 +127,9 @@ function App() {
       return next;
     });
 
-  const [breed, setBreed] = useState(() => ({
-    generations: [firstGeneration()],
-    // The generation on screen; later ones stay in the history until you breed again
-    current: 0,
-    mutation: MUTATIONS[1].id,
-  }));
-  const [blend, setBlend] = useState(() => ({
-    a: randomOutput(1),
-    b: randomOutput(2),
-    t: 0.5,
-    draws: 2,
-  }));
+  const [breed, setBreed] = useState(() => newBreed(example));
+  const [blend, setBlend] = useState(() => newBlend(example));
+  const { blendAt } = example;
 
   const updateGeneration = (update) =>
     setBreed((prev) => ({
@@ -146,7 +155,7 @@ function App() {
     setBreed((prev) => {
       const shown = prev.generations[prev.current];
       if (!shown.picked.length) return prev;
-      return addGeneration(prev, nextGeneration(shown, prev.mutation));
+      return addGeneration(prev, example.nextGeneration(shown, prev.mutation));
     });
   const rewind = (n) => setBreed((prev) => ({ ...prev, current: n }));
   // The blend under the scrubber becomes one end, and the scrubber recentres
@@ -155,7 +164,7 @@ function App() {
   const newB = () =>
     setBlend((prev) => ({
       ...prev,
-      b: randomOutput(prev.draws + 1),
+      b: example.randomOutput(prev.draws + 1),
       draws: prev.draws + 1,
     }));
 
@@ -166,7 +175,7 @@ function App() {
       setBreed((prev) =>
         addGeneration(
           prev,
-          nextGeneration(
+          example.nextGeneration(
             { outputs: [output], picked: [output.id] },
             prev.mutation
           )
@@ -221,7 +230,7 @@ function App() {
     if (group === "focus") {
       setFocusLayout(layout);
       if (tree) setFocusOpen(true);
-      else openFocus(makeOutput(0, 0));
+      else openFocus(example.cell(0, 0));
       return;
     }
     closeFocus();
@@ -234,11 +243,44 @@ function App() {
     setCanvasLayout(layout);
   };
 
+  // Switching starts the new example afresh: no visit tree, new Breed and Blend, and a sort or
+  // grouping it has. A view it can't show falls back to the first canvas view.
+  const switchExample = (id) => {
+    if (id === exampleId) return;
+    const next = exampleById(id);
+    setExampleId(id);
+    setTree(null);
+    setOpened(null);
+    setBreed((prev) => newBreed(next, prev.mutation));
+    setBlend(newBlend(next));
+    setClosedGroups(new Set());
+    if (!sortKeys(next).some((k) => k.key === sort.key))
+      setSort({ key: "created", dir: -1 });
+    if (!next.groupings.includes(groupBy)) setGroupBy("day");
+    const view = focusOpen
+      ? focusLayout
+      : ({ canvas: canvasLayout, table: tableLayout }[mode] ?? mode);
+    if (!supports(next, view)) {
+      closeFocus();
+      setMode("canvas");
+      setCanvasLayout(CANVAS_LAYOUTS[0].id);
+      setCamera(START_CAMERA);
+      return;
+    }
+    // Focus carries on, from the new example's first output
+    if (focusOpen)
+      setTree({
+        nodes: [{ id: 0, output: next.cell(0, 0), parent: null }],
+        current: 0,
+      });
+  };
+
   return (
     <main className="app">
       {/* Kept mounted under Focus so the canvas position and table state survive */}
       {mode === "canvas" && (
         <CanvasMode
+          example={example}
           onOpen={openFrom}
           openedId={opened?.id}
           layoutId={canvasLayout}
@@ -248,6 +290,7 @@ function App() {
       )}
       {mode === "breed" && (
         <BreedMode
+          example={example}
           generations={breed.generations}
           current={breed.current}
           onToggle={togglePick}
@@ -256,12 +299,14 @@ function App() {
       )}
       {mode === "blend" && (
         <BlendMode
+          example={example}
           blend={blend}
           onScrub={(t) => setBlend((prev) => ({ ...prev, t }))}
         />
       )}
       {mode === "table" && (
         <TableMode
+          example={example}
           onOpen={openFrom}
           paused={Boolean(focus)}
           layout={tableLayout}
@@ -274,6 +319,7 @@ function App() {
       )}
       {focus && (
         <FocusMode
+          example={example}
           output={focused.output}
           layoutId={focusLayout}
           onFocus={focusOn}
@@ -282,6 +328,8 @@ function App() {
       )}
       {about && <AboutPage />}
       <TopBar
+        example={example}
+        onExample={switchExample}
         mode={mode}
         onHandOff={handOff}
         onOpenMade={openMade}

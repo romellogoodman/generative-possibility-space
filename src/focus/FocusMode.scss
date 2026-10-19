@@ -180,6 +180,14 @@
     .delta {
       text-align: right;
     }
+
+    // A named value (e.g. "Micro-Uniform") stays on one line
+    .delta--value {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }
 
