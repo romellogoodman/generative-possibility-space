@@ -4,6 +4,28 @@ import { round2, short } from "../lib/outputs.js";
 
 // Stand-in for a generative output
 export function Output({ output, scale = 1 }) {
+  if (output.token) {
+    // Keep the image's own shape inside the square: the longer side gets the size
+    const { aspect } = output.token;
+    const side = output.size * 100 * scale;
+    return (
+      <div
+        className="output output--image"
+        data-id={output.id}
+        style={{
+          width: `${aspect < 1 ? side * aspect : side}%`,
+          height: `${aspect < 1 ? side : side / aspect}%`,
+        }}
+      >
+        <img
+          src={output.token.image}
+          alt={output.token.name}
+          loading="lazy"
+          draggable="false"
+        />
+      </div>
+    );
+  }
   return (
     <div
       className="output"
