@@ -6,6 +6,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  // Pinned at left: 50%, the bar would otherwise shrink to half the window and wrap
+  width: max-content;
   max-width: calc(100vw - 32px);
   padding: 4px;
   border-radius: 999px;
@@ -342,6 +344,11 @@
   .chip__label,
   .chip__long,
   .chip--back .chip__text {
+    display: none;
+  }
+
+  // Breed's action drops its arrow on a phone, so Open still fits beside it
+  .chip--action .chip__icon {
     display: none;
   }
 
