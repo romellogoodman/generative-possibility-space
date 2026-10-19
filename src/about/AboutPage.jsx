@@ -106,8 +106,8 @@ export function AboutPage() {
           </a>
         </section>
         <p className="about__thanks">
-          Special thanks to Luis Queral, who pointed GPS at his own video
-          project and sketched Parameter map, Lineage, Breed and Blend.
+          Special thanks to Luis Queral for feedback and the initial sketches
+          for Parameter map, Lineage, Breed and Blend.
         </p>
       </article>
     </div>
