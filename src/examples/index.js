@@ -3,9 +3,10 @@ import { FIDENZA } from "./fidenza.js";
 import { MERIDIAN } from "./meridian.js";
 import { ASEMICA } from "./asemica.js";
 
-// The examples GPS hosts, in the order the settings menu lists them. Each one declares its
+// The examples GPS hosts, in the order the settings menu lists them: Grey squares, then
+// the rest alphabetically. Each one declares its
 // outputs, settings, neighbours and breed/blend rules; the views read everything from it.
-export const EXAMPLES = [SQUARES, FIDENZA, MERIDIAN, ASEMICA];
+export const EXAMPLES = [SQUARES, ASEMICA, FIDENZA, MERIDIAN];
 
 export const DEFAULT_EXAMPLE = SQUARES.id;
 
