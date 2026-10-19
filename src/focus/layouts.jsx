@@ -35,7 +35,12 @@ function FocusMeta({ output }) {
 function Hero({ output, children }) {
   return (
     <div className="focus-hero">
-      <Frame key={output.id} output={output} className="focus-hero__image" />
+      <Frame
+        key={output.id}
+        output={output}
+        className="focus-hero__image"
+        full
+      />
       {children}
     </div>
   );

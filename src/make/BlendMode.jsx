@@ -15,7 +15,7 @@ export function BlendMode({ blend, onScrub }) {
           <Frame output={a} />
         </div>
         <div>
-          <Frame key={current.id} output={current} />
+          <Frame key={current.id} output={current} full />
           <p className="focus-meta">
             <span className="data-table__mono">
               {Math.round((1 - t) * 100)}% A · {Math.round(t * 100)}% B

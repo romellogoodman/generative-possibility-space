@@ -15,6 +15,12 @@ export function hash(x, y, seed = 0) {
 export const tokenFor = (seed) =>
   fidenza[Math.floor(hash(seed, 0, 8) * fidenza.length)];
 
+// A token's two images, both from its id: a small local preview (333x400 WebP, made by
+// scripts/fidenza-previews.mjs) for grids, and the full 2000x2400 PNG from Art Blocks
+export const previewUrl = (token) => `/fidenza/${token.id}.webp`;
+export const fullUrl = (token) =>
+  `https://media-proxy.artblocks.io/1/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/${token.id}.png`;
+
 // A stand-in generative output, worked out from its grid position
 export function makeOutput(gridX, gridY) {
   const day = Math.floor(hash(gridX, gridY, 3) * 11);

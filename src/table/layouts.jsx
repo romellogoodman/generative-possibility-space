@@ -223,7 +223,7 @@ export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
       <aside className="split__preview">
         <button className="split__image" onClick={() => onOpen(preview)}>
           <span className="split__frame">
-            <Output output={preview} />
+            <Output output={preview} full />
           </span>
         </button>
         <div className="split__meta">

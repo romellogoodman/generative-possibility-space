@@ -1,9 +1,45 @@
-import { round2, short } from "../lib/outputs.js";
+import { useEffect, useState } from "react";
+import { fullUrl, previewUrl, round2, short } from "../lib/outputs.js";
 
 // The pieces every view draws an output with
 
+// A token's picture. Grids get the small local preview; `full` (the one large output in Focus,
+// Blend and Split) shows the preview first and swaps in the full PNG once it has loaded
+function TokenImage({ token, full }) {
+  const [ready, setReady] = useState(null);
+  useEffect(() => {
+    if (!full) return;
+    // Wait a beat so scrubbing Blend or arrowing through Focus doesn't start a download per step
+    const url = fullUrl(token);
+    let live = true;
+    const timer = setTimeout(() => {
+      const image = new Image();
+      image.fetchPriority = "high";
+      image.src = url;
+      image
+        .decode()
+        .then(() => live && setReady(url))
+        .catch(() => {});
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [full, token]);
+  const src = full && ready === fullUrl(token) ? ready : previewUrl(token);
+  return (
+    <img
+      src={src}
+      alt={token.name}
+      loading={full ? "eager" : "lazy"}
+      decoding="async"
+      draggable="false"
+    />
+  );
+}
+
 // Stand-in for a generative output
-export function Output({ output, scale = 1 }) {
+export function Output({ output, scale = 1, full = false }) {
   if (output.token) {
     // Keep the image's own shape inside the square: the longer side gets the size
     const { aspect } = output.token;
@@ -17,12 +53,7 @@ export function Output({ output, scale = 1 }) {
           height: `${aspect < 1 ? side : side / aspect}%`,
         }}
       >
-        <img
-          src={output.token.image}
-          alt={output.token.name}
-          loading="lazy"
-          draggable="false"
-        />
+        <TokenImage token={output.token} full={full} />
       </div>
     );
   }
@@ -48,10 +79,10 @@ export function Score({ value }) {
   );
 }
 
-export function Frame({ output, className = "" }) {
+export function Frame({ output, className = "", full = false }) {
   return (
     <div className={`frame ${className}`}>
-      <Output output={output} />
+      <Output output={output} full={full} />
     </div>
   );
 }
