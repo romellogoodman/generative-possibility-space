@@ -1,9 +1,17 @@
 import { SQUARES } from "./squares.js";
 import { FIDENZA } from "./fidenza.js";
+import { MERIDIAN } from "./meridian.js";
+import { ASEMICA } from "./asemica.js";
 
 // The examples GPS hosts, in the order the settings menu lists them. Each one declares its
 // outputs, settings, neighbours and breed/blend rules; the views read everything from it.
-export const EXAMPLES = [SQUARES, FIDENZA];
+// Asemica is local only: `npm run dev` lists it, the public build leaves it out.
+export const EXAMPLES = [
+  SQUARES,
+  FIDENZA,
+  MERIDIAN,
+  ...(import.meta.env.DEV ? [ASEMICA] : []),
+];
 
 export const DEFAULT_EXAMPLE = SQUARES.id;
 

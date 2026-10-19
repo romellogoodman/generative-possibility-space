@@ -150,12 +150,13 @@ button {
   }
 }
 
+// A small output in a table row, in the example's cell shape (40px on the longer side)
 .thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: calc(40px * min(1, var(--cell-aspect, 1)));
+  height: calc(40px / max(1, var(--cell-aspect, 1)));
   background: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: 4px;

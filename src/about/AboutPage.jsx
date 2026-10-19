@@ -5,12 +5,21 @@ import "./AboutPage.scss";
 const REPO_URL =
   "https://github.com/romellogoodman/generative-possibility-space";
 
-// Credit for the Fidenza example: the art, where it lives, and the metadata licence
+// Credit for the Art Blocks examples: the art, where it lives, and the metadata licence
+const PROJECTS_URL =
+  "https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270";
+const LICENSE_URL = "https://creativecommons.org/licenses/by-nc/4.0/";
+
 const FIDENZA = {
   artist: "https://tylerxhobbs.com",
-  project:
-    "https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/78",
-  license: "https://creativecommons.org/licenses/by-nc/4.0/",
+  project: `${PROJECTS_URL}/78`,
+  license: LICENSE_URL,
+};
+
+const MERIDIAN = {
+  artist: "https://www.mattdesl.com",
+  project: `${PROJECTS_URL}/163`,
+  license: LICENSE_URL,
 };
 
 const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
@@ -81,6 +90,29 @@ export function AboutPage() {
                 </a>
                 .{" "}
                 <a href={FIDENZA.license} target="_blank" rel="noreferrer">
+                  CC BY-NC 4.0
+                </a>
+                , non-commercial demo.
+              </p>
+            </li>
+            <li className="about__example">
+              <h3 className="about__example-name">Meridian</h3>
+              <p className="about__text">
+                1,000 real outputs with 6 traits each, drawn tall. Zoom runs
+                across, chromaticity runs down, frequency is a dial and style
+                and palette are families.
+              </p>
+              <p className="about__credit">
+                Meridian by{" "}
+                <a href={MERIDIAN.artist} target="_blank" rel="noreferrer">
+                  Matt DesLauriers
+                </a>
+                , via{" "}
+                <a href={MERIDIAN.project} target="_blank" rel="noreferrer">
+                  Art Blocks
+                </a>
+                .{" "}
+                <a href={MERIDIAN.license} target="_blank" rel="noreferrer">
                   CC BY-NC 4.0
                 </a>
                 , non-commercial demo.

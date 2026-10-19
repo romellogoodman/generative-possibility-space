@@ -12,7 +12,7 @@ export function BreedMode({
 }) {
   const current = generations[index];
   return (
-    <div className="breed">
+    <div className={`breed${example.cellAspect < 1 ? " breed--tall" : ""}`}>
       <section>
         <p className="focus-label">
           Generation {index + 1} · pick the ones you like, then breed
@@ -32,9 +32,11 @@ export function BreedMode({
                 }
                 onClick={() => onToggle(o.id)}
               >
-                <Frame output={o} />
+                <Frame output={o} box={example.cellAspect} />
                 <span className="breed__meta data-table__mono">
-                  {example.brief?.(o) ?? describe(example, o)}
+                  <span className="breed__brief">
+                    {example.brief?.(o) ?? describe(example, o)}
+                  </span>
                   {picked && <Check className="breed__check" />}
                 </span>
               </button>
@@ -57,6 +59,7 @@ export function BreedMode({
               <Frame
                 key={o.id}
                 output={o}
+                box={example.cellAspect}
                 className={g.picked.includes(o.id) ? "breed__picked" : ""}
               />
             ))}

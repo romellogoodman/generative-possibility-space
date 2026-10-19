@@ -1,9 +1,9 @@
-// Rebuild the small Fidenza previews in .assets/fidenza/<tokenId>.webp from the Art Blocks thumbnails,
-// then upload them to the gps-assets R2 bucket (see README). They stay out of git.
-// Needs cwebp (`brew install webp`). Skips files that already exist and fetches one at a time,
-// since Art Blocks answers bursts with 429.
+// Rebuild an Art Blocks project's small previews in .assets/<project>/<tokenId>.webp from the
+// Art Blocks thumbnails, then upload them to the gps-assets R2 bucket (see README). They stay out
+// of git. The project names its catalog, src/data/<project>.json. Needs cwebp (`brew install webp`).
+// Skips files that already exist and fetches one at a time, since Art Blocks answers bursts with 429.
 //
-//   node scripts/fidenza-previews.mjs [--out dir] [--quality 80] [--limit n]
+//   node scripts/previews.mjs --project meridian [--out dir] [--quality 80] [--limit n]
 
 import { execFile } from "node:child_process";
 import {
@@ -24,18 +24,19 @@ const args = Object.fromEntries(
     return pairs;
   }, [])
 );
-const out = args.out ?? ".assets/fidenza";
+const project = args.project ?? "fidenza";
+const out = args.out ?? `.assets/${project}`;
 const quality = args.quality ?? "80";
 const limit = Number(args.limit ?? Infinity);
-const LONG_SIDE = 400; // the thumbs are 1000x1200, so this gives 333x400
+const LONG_SIDE = 400; // 333x400 for Fidenza's 5:6, 225x400 for Meridian's 9:16
 const PAUSE = 400; // ms between fetches
 
-const tokens = JSON.parse(readFileSync("src/data/fidenza.json", "utf8"));
+const tokens = JSON.parse(readFileSync(`src/data/${project}.json`, "utf8"));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 mkdirSync(out, { recursive: true });
 
 let made = 0;
-for (const { id } of tokens.slice(0, limit)) {
+for (const { id, aspect } of tokens.slice(0, limit)) {
   const file = join(out, `${id}.webp`);
   if (existsSync(file)) continue;
   let response;
@@ -48,8 +49,10 @@ for (const { id } of tokens.slice(0, limit)) {
     console.error(`${id}: ${response.status}`);
     continue;
   }
-  const png = join(tmpdir(), `fidenza-${id}.png`);
+  const png = join(tmpdir(), `${project}-${id}.png`);
   writeFileSync(png, Buffer.from(await response.arrayBuffer()));
+  // The long side gets LONG_SIDE; 0 keeps the other side in proportion
+  const size = aspect > 1 ? [`${LONG_SIDE}`, "0"] : ["0", `${LONG_SIDE}`];
   await run("cwebp", [
     "-quiet",
     "-q",
@@ -57,8 +60,7 @@ for (const { id } of tokens.slice(0, limit)) {
     "-m",
     "6",
     "-resize",
-    "0",
-    `${LONG_SIDE}`,
+    ...size,
     png,
     "-o",
     file,

@@ -26,6 +26,12 @@ export function BlendMode({ example, blend, onScrub }) {
                 {s.name} {s.text(current)}
               </span>
             ))}
+            {/* What the example never blends across: B is always drawn to share it with A */}
+            {example.keep?.map((k) => (
+              <span key={k}>
+                {k} {a.traits[k]} at both ends
+              </span>
+            ))}
           </p>
         </div>
         <div className="blend__end">

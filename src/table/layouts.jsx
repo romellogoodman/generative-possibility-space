@@ -7,7 +7,7 @@ import {
   sortOutputs,
   nextSort,
   canHover,
-  GROUPINGS,
+  groupingOf,
   groupOutputs,
 } from "./data.jsx";
 
@@ -112,7 +112,7 @@ export function SpreadsheetLayout({
             >
               <td className="data-table__thumb">
                 <div className="thumb">
-                  <Output output={output} />
+                  <Output output={output} box={example.cellAspect} />
                 </div>
               </td>
               <PropertyCells output={output} example={example} />
@@ -277,10 +277,10 @@ export function GroupedLayout({
   closed,
   onToggleGroup,
 }) {
-  const grouping = GROUPINGS[groupBy];
+  const grouping = groupingOf(example, groupBy);
   const groups = useMemo(
-    () => groupOutputs(outputs, groupBy),
-    [outputs, groupBy]
+    () => groupOutputs(outputs, groupBy, example),
+    [outputs, groupBy, example]
   );
 
   const isClosed = (key) => closed.has(`${groupBy}:${key}`);

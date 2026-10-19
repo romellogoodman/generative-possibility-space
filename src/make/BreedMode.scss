@@ -17,6 +17,30 @@
     margin-top: var(--spacing-unit);
   }
 
+  // Tall outputs: narrower columns, so three rows of them fit the screen...
+  &--tall &__grid {
+    grid-template-columns: repeat(
+      3,
+      minmax(
+        0,
+        min(
+          200px,
+          calc(
+            (100dvh - var(--top-bar-clearance) - 180px) / 3 * var(--cell-aspect)
+          )
+        )
+      )
+    );
+  }
+
+  // ... and their captions keep to one line
+  &--tall &__brief {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   &__candidate {
     display: flex;
     flex-direction: column;

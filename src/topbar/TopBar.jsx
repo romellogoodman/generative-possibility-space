@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Frame } from "../components/Output.jsx";
 import { CANVAS_LAYOUTS } from "../canvas/layouts.js";
-import { sortKeys, nextSort, GROUPINGS } from "../table/data.jsx";
+import { sortKeys, nextSort, groupingOf } from "../table/data.jsx";
 import { EXAMPLES, supports } from "../examples/index.js";
 import { TABLE_LAYOUTS } from "../table/views.js";
 import { FOCUS_LAYOUTS } from "../focus/views.js";
@@ -384,12 +384,13 @@ export function TopBar({
           title="Group by"
           label={
             <>
-              <span className="chip__label">by</span> {GROUPINGS[groupBy].label}
+              <span className="chip__label">by</span>{" "}
+              {groupingOf(example, groupBy).label}
             </>
           }
           options={example.groupings.map((id) => ({
             id,
-            label: GROUPINGS[id].label,
+            label: groupingOf(example, id).label,
           }))}
           value={groupBy}
           onChange={onGroupBy}

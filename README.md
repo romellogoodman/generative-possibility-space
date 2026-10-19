@@ -43,7 +43,7 @@ Then run `/gps` in Claude Code, or ask it to "add GPS views to this project".
 
 ## Credits
 
-GPS hosts two examples: the original grey squares, and Fidenza.
+GPS hosts three examples: the original grey squares, Fidenza and Meridian.
 
 [Fidenza](https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/78)
 is by [Tyler Hobbs](https://tylerxhobbs.com) (2021), via Art Blocks Curated. The images and
@@ -52,13 +52,21 @@ metadata (names and traits for all 999 tokens) come from the Art Blocks token AP
 licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). GPS uses it
 non-commercially, as a demo.
 
+[Meridian](https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/163)
+is by [Matt DesLauriers](https://www.mattdesl.com) (2021), via Art Blocks Curated. Its images and
+metadata (names and traits for all 1,000 tokens) come from the same API, saved in
+[`src/data/meridian.json`](src/data/meridian.json), and are licensed
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). GPS uses them non-commercially,
+as a demo.
+
 ## Image assets
 
-Fidenza's small previews live in the `gps-assets` Cloudflare R2 bucket, served from its public
-r2.dev address (see `ASSETS_URL` in `src/lib/outputs.js`), not in git. To rebuild and upload them:
+Fidenza's and Meridian's small previews live in the `gps-assets` Cloudflare R2 bucket, served
+from its public r2.dev address (see `ASSETS_URL` in `src/lib/outputs.js`), not in git. To rebuild
+and upload one project's previews (`--project fidenza` or `--project meridian`):
 
 ```bash
-node scripts/fidenza-previews.mjs   # writes .assets/fidenza/<tokenId>.webp (needs cwebp)
-ls .assets/fidenza/*.webp | xargs -P 8 -I{} sh -c \
-  'wrangler r2 object put "gps-assets/fidenza/$(basename {})" --file {} --content-type image/webp --remote'
+node scripts/previews.mjs --project meridian   # writes .assets/meridian/<tokenId>.webp (needs cwebp)
+ls .assets/meridian/*.webp | xargs -P 8 -I{} sh -c \
+  'wrangler r2 object put "gps-assets/meridian/$(basename {})" --file {} --content-type image/webp --remote'
 ```
