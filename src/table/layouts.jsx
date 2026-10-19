@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { Fragment, useState, useEffect, useRef, useMemo } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatDate, formatTime } from "../lib/outputs.js";
 import { Output, Score } from "../components/Output.jsx";
 import {
-  SORT_KEYS,
+  sortKeys,
   sortOutputs,
   nextSort,
   canHover,
@@ -19,12 +19,12 @@ function SortArrow({ sort, sortKey }) {
   );
 }
 
-function SortableHead({ sort, onSort, withThumb = false }) {
+function SortableHead({ example, sort, onSort, withThumb = false }) {
   return (
     <thead>
       <tr>
         {withThumb && <th className="data-table__thumb" />}
-        {SORT_KEYS.map(({ key, label, numeric }) => (
+        {sortKeys(example).map(({ key, label, numeric }) => (
           <th
             key={key}
             className={`data-table__head${numeric ? " data-table__head--numeric" : ""}`}
@@ -36,7 +36,7 @@ function SortableHead({ sort, onSort, withThumb = false }) {
                 : undefined
             }
           >
-            <button onClick={() => onSort(nextSort(sort, key))}>
+            <button onClick={() => onSort(nextSort(sort, key, example))}>
               {label}
               <SortArrow sort={sort} sortKey={key} />
             </button>
@@ -47,22 +47,26 @@ function SortableHead({ sort, onSort, withThumb = false }) {
   );
 }
 
-function PropertyCells({ output }) {
+function PropertyCells({ output, example }) {
   return (
     <>
       <td className="data-table__mono">#{output.seed}</td>
-      <td className="data-table__mono data-table__numeric">
-        {output.size.toFixed(2)}
-      </td>
-      <td className="data-table__mono data-table__numeric">
-        {output.shade.toFixed(2)}
-        <span className="meter">
-          <span
-            className="meter__fill"
-            style={{ width: `${output.shade * 100}%` }}
-          />
-        </span>
-      </td>
+      {example.settings.map((s) => (
+        <td
+          key={s.key}
+          className={`data-table__mono${s.numeric ? " data-table__numeric" : ""}`}
+        >
+          {s.cell(output)}
+          {s.meter && (
+            <span className="meter">
+              <span
+                className="meter__fill"
+                style={{ width: `${s.meter(output) * 100}%` }}
+              />
+            </span>
+          )}
+        </td>
+      ))}
       <td className="data-table__numeric">
         <Score value={output.score} />
       </td>
@@ -72,6 +76,7 @@ function PropertyCells({ output }) {
 }
 
 export function SpreadsheetLayout({
+  example,
   outputs,
   sort,
   onSort,
@@ -95,9 +100,9 @@ export function SpreadsheetLayout({
   return (
     <div className="table-layout">
       <table className="data-table">
-        <SortableHead sort={sort} onSort={onSort} withThumb />
+        <SortableHead example={example} sort={sort} onSort={onSort} withThumb />
         <tbody>
-          {sortOutputs(outputs, sort).map((output) => (
+          {sortOutputs(outputs, sort, example).map((output) => (
             <tr
               key={output.id}
               tabIndex={0}
@@ -110,7 +115,7 @@ export function SpreadsheetLayout({
                   <Output output={output} />
                 </div>
               </td>
-              <PropertyCells output={output} />
+              <PropertyCells output={output} example={example} />
             </tr>
           ))}
         </tbody>
@@ -119,14 +124,14 @@ export function SpreadsheetLayout({
   );
 }
 
-export function CardsLayout({ outputs, sort, selectedId, onOpen }) {
+export function CardsLayout({ example, outputs, sort, selectedId, onOpen }) {
   const highlight = (key) =>
     sort.key === key ? " card__property--sorted" : "";
 
   return (
     <div className="table-layout">
       <div className="cards">
-        {sortOutputs(outputs, sort).map((output) => (
+        {sortOutputs(outputs, sort, example).map((output) => (
           <button
             key={output.id}
             className={`card${output.id === selectedId ? " card--selected" : ""}`}
@@ -140,14 +145,14 @@ export function CardsLayout({ outputs, sort, selectedId, onOpen }) {
               <dd className={`data-table__mono${highlight("seed")}`}>
                 #{output.seed}
               </dd>
-              <dt className={highlight("size")}>Size</dt>
-              <dd className={`data-table__mono${highlight("size")}`}>
-                {output.size.toFixed(2)}
-              </dd>
-              <dt className={highlight("shade")}>Shade</dt>
-              <dd className={`data-table__mono${highlight("shade")}`}>
-                {output.shade.toFixed(2)}
-              </dd>
+              {example.settings.map((s) => (
+                <Fragment key={s.key}>
+                  <dt className={highlight(s.key)}>{s.label}</dt>
+                  <dd className={`data-table__mono${highlight(s.key)}`}>
+                    {s.cell(output)}
+                  </dd>
+                </Fragment>
+              ))}
               <dt className={highlight("score")}>Score</dt>
               <dd className={highlight("score")}>
                 <Score value={output.score} />
@@ -164,8 +169,15 @@ export function CardsLayout({ outputs, sort, selectedId, onOpen }) {
   );
 }
 
-export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
-  const sorted = sortOutputs(outputs, sort);
+export function SplitLayout({
+  example,
+  outputs,
+  sort,
+  onSort,
+  onOpen,
+  paused,
+}) {
+  const sorted = sortOutputs(outputs, sort, example);
   const [previewId, setPreviewId] = useState(sorted[0].id);
   const preview = sorted.find((o) => o.id === previewId) ?? sorted[0];
   const listRef = useRef(null);
@@ -204,7 +216,7 @@ export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
     <div className="split">
       <div className="split__list" ref={listRef}>
         <table className="data-table">
-          <SortableHead sort={sort} onSort={onSort} />
+          <SortableHead example={example} sort={sort} onSort={onSort} />
           <tbody>
             {sorted.map((output) => (
               <tr
@@ -214,7 +226,7 @@ export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
                 onMouseEnter={() => canHover() && setPreviewId(output.id)}
                 onClick={() => handleClick(output)}
               >
-                <PropertyCells output={output} />
+                <PropertyCells output={output} example={example} />
               </tr>
             ))}
           </tbody>
@@ -229,10 +241,12 @@ export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
         <div className="split__meta">
           <h2 className="split__title">#{preview.seed}</h2>
           <dl className="properties">
-            <dt>Size</dt>
-            <dd className="data-table__mono">{preview.size.toFixed(2)}</dd>
-            <dt>Shade</dt>
-            <dd className="data-table__mono">{preview.shade.toFixed(2)}</dd>
+            {example.settings.map((s) => (
+              <Fragment key={s.key}>
+                <dt>{s.label}</dt>
+                <dd className="data-table__mono">{s.cell(preview)}</dd>
+              </Fragment>
+            ))}
             <dt>Score</dt>
             <dd>{preview.score} / 5</dd>
             <dt>Created</dt>
@@ -255,6 +269,7 @@ export function SplitLayout({ outputs, sort, onSort, onOpen, paused }) {
 }
 
 export function GroupedLayout({
+  example,
   outputs,
   selectedId,
   onOpen,
@@ -321,8 +336,10 @@ export function GroupedLayout({
                       <span className="group-item__details">
                         {groupBy === "day"
                           ? formatTime(o.created)
-                          : formatDate(o.created)}{" "}
-                        · size {o.size.toFixed(2)} · shade {o.shade.toFixed(2)}
+                          : formatDate(o.created)}
+                        {example.settings
+                          .map((s) => ` · ${s.name} ${s.cell(o)}`)
+                          .join("")}
                       </span>
                     </button>
                   ))}

@@ -1,17 +1,53 @@
 import { useState, useEffect, useRef } from "react";
-import { short } from "../lib/outputs.js";
 import { Output, Score } from "../components/Output.jsx";
-import {
-  outputFromId,
-  MAP_SIZE,
-  visibleMapCells,
-  zoomAround,
-  visibleCells,
-} from "./camera.js";
+import { describe } from "../examples/index.js";
+import { MAP_SIZE, zoomAround, visibleCells } from "./camera.js";
 import { CANVAS_LAYOUTS, CAPTION_ZOOM } from "./layouts.js";
 import "./CanvasMode.scss";
 
-export function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
+// A map of named values labels each column above the square and each row on its right
+function MapTicks({ ticks, camera }) {
+  const toScreen = (world, from) => (world - from) * camera.zoom;
+  const column = MAP_SIZE / ticks.x.length;
+  const row = MAP_SIZE / ticks.y.length;
+  return (
+    <>
+      {ticks.x.map((value, i) => (
+        <span
+          key={`x${value}`}
+          className="parameter-map__tick parameter-map__tick--x"
+          style={{
+            left: toScreen((i + 0.5) * column, camera.x),
+            top: toScreen(0, camera.y),
+          }}
+        >
+          {value}
+        </span>
+      ))}
+      {ticks.y.map((value, j) => (
+        <span
+          key={`y${value}`}
+          className="parameter-map__tick parameter-map__tick--y"
+          style={{
+            left: toScreen(MAP_SIZE, camera.x),
+            top: toScreen((j + 0.5) * row, camera.y),
+          }}
+        >
+          {value}
+        </span>
+      ))}
+    </>
+  );
+}
+
+export function CanvasMode({
+  example,
+  onOpen,
+  layoutId,
+  camera,
+  setCamera,
+  openedId,
+}) {
   const containerRef = useRef(null);
   const layout = CANVAS_LAYOUTS.find((l) => l.id === layoutId);
   const [viewport, setViewport] = useState({
@@ -84,16 +120,25 @@ export function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
     const target = document
       .elementFromPoint(e.clientX, e.clientY)
       ?.closest(".output");
-    if (target) onOpen(outputFromId(target.dataset.id));
+    if (target) onOpen(example.fromId(target.dataset.id));
   };
 
   const { cellSize } = layout;
   const cells = layout.mapped
     ? []
-    : visibleCells(camera, viewport.width, viewport.height, cellSize);
+    : visibleCells(
+        camera,
+        viewport.width,
+        viewport.height,
+        cellSize,
+        example.cell
+      );
+  const { map } = example;
   const mapCells = layout.mapped
-    ? visibleMapCells(camera, viewport.width, viewport.height)
+    ? map.cells(camera, viewport.width, viewport.height)
     : [];
+  // An example drawn at one size keeps it on the contact sheet too
+  const fixedSize = !example.fixedSize && layout.fixedSize;
   const showCaptions = layout.fixedSize && camera.zoom >= CAPTION_ZOOM;
 
   return (
@@ -117,12 +162,10 @@ export function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
               layout.stagger && Math.abs(cell.gridX) % 2 === 1
                 ? cellSize / 2
                 : 0;
-            const output = layout.fixedSize
-              ? { ...cell, size: layout.fixedSize }
-              : cell;
+            const output = fixedSize ? { ...cell, size: fixedSize } : cell;
             return (
               <div
-                key={`${layoutId}:${cell.id}`}
+                key={`${layoutId}:${cell.gridX},${cell.gridY}`}
                 className={`infinite-canvas__cell${cell.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
                 style={{
                   left: cell.gridX * cellSize,
@@ -146,17 +189,12 @@ export function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
               style={{ width: MAP_SIZE, height: MAP_SIZE }}
             />
           )}
-          {mapCells.map(({ i, j, cellSize: size, output }) => (
+          {mapCells.map(({ key, left, top, size, output }) => (
             <div
-              key={output.id}
+              key={key}
               className={`infinite-canvas__cell${output.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
-              title={`#${output.seed} · size ${short(output.size)} · shade ${short(output.shade)}`}
-              style={{
-                left: i * size,
-                top: j * size,
-                width: size,
-                height: size,
-              }}
+              title={`#${output.seed} · ${describe(example, output)}`}
+              style={{ left, top, width: size, height: size }}
             >
               <Output output={output} scale={0.9} />
             </div>
@@ -165,11 +203,12 @@ export function CanvasMode({ onOpen, layoutId, camera, setCamera, openedId }) {
       </div>
       {layout.mapped && (
         <>
+          {map.ticks && <MapTicks ticks={map.ticks} camera={camera} />}
           <span className="parameter-map__axis parameter-map__axis--x">
-            smaller ← size → bigger
+            {map.axes.x}
           </span>
           <span className="parameter-map__axis parameter-map__axis--y">
-            darker ← shade → lighter
+            {map.axes.y}
           </span>
         </>
       )}

@@ -42,12 +42,17 @@ export function Trail({ trail, current, onJump }) {
   );
 }
 
-export function FocusMode({ output, layoutId, onFocus, lineage }) {
+export function FocusMode({ example, output, layoutId, onFocus, lineage }) {
   const { Component } = FOCUS_LAYOUTS.find((l) => l.id === layoutId);
   return (
     <div className="focus-mode">
       <div className="focus-mode__body">
-        <Component output={output} onFocus={onFocus} lineage={lineage} />
+        <Component
+          example={example}
+          output={output}
+          onFocus={onFocus}
+          lineage={lineage}
+        />
       </div>
     </div>
   );

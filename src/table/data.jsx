@@ -1,31 +1,33 @@
-import { makeOutput, formatDay } from "../lib/outputs.js";
+import { formatDay } from "../lib/outputs.js";
 import { Score } from "../components/Output.jsx";
 
-// The outputs listed in Table mode: a 10 × 6 block of the canvas
-export const TABLE_OUTPUTS = [];
-for (let gy = 0; gy < 6; gy++) {
-  for (let gx = 0; gx < 10; gx++) {
-    TABLE_OUTPUTS.push(makeOutput(gx, gy));
-  }
-}
-
-export const SORT_KEYS = [
+// The columns a table sorts by: seed, then the example's settings, then score and date.
+// Ordered settings sort by their place in the order, not alphabetically.
+export const sortKeys = (example) => [
   { key: "seed", label: "Seed", dir: 1 },
-  { key: "size", label: "Size", dir: -1, numeric: true },
-  { key: "shade", label: "Shade", dir: -1, numeric: true },
+  ...example.settings.map((s) => ({
+    key: s.key,
+    label: s.label,
+    dir: s.dir,
+    numeric: s.numeric,
+    value: s.sortValue ?? s.read,
+  })),
   { key: "score", label: "Score", dir: -1, numeric: true },
   { key: "created", label: "Created", dir: -1 },
 ];
 
-export function sortOutputs(outputs, { key, dir }) {
-  return [...outputs].sort(
-    (a, b) => ((a[key] > b[key]) - (a[key] < b[key])) * dir || a.seed - b.seed
-  );
+export function sortOutputs(outputs, { key, dir }, example) {
+  const value = sortKeys(example).find((k) => k.key === key)?.value;
+  const read = value ?? ((o) => o[key]);
+  return [...outputs].sort((a, b) => {
+    const [x, y] = [read(a), read(b)];
+    return ((x > y) - (x < y)) * dir || a.seed - b.seed;
+  });
 }
 
-export function nextSort(sort, key) {
+export function nextSort(sort, key, example) {
   if (sort.key === key) return { key, dir: -sort.dir };
-  return { key, dir: SORT_KEYS.find((k) => k.key === key).dir };
+  return { key, dir: sortKeys(example).find((k) => k.key === key).dir };
 }
 
 export const canHover = () => window.matchMedia("(hover: hover)").matches;
@@ -61,6 +63,13 @@ export const GROUPINGS = {
     title: (key) => SIZE_BUCKETS[key],
     order: (a, b) => "LMS".indexOf(a) - "LMS".indexOf(b),
     within: (a, b) => b.size - a.size,
+  },
+  colors: {
+    label: "Colors",
+    key: (o) => o.traits.Colors,
+    title: (key) => key,
+    order: (a, b) => (a < b ? -1 : 1),
+    within: (a, b) => b.created - a.created,
   },
 };
 

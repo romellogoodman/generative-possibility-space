@@ -1,4 +1,5 @@
-// Rebuild the small Fidenza previews in public/fidenza/<tokenId>.webp from the Art Blocks thumbnails.
+// Rebuild the small Fidenza previews in .assets/fidenza/<tokenId>.webp from the Art Blocks thumbnails,
+// then upload them to the gps-assets R2 bucket (see README). They stay out of git.
 // Needs cwebp (`brew install webp`). Skips files that already exist and fetches one at a time,
 // since Art Blocks answers bursts with 429.
 //
@@ -23,7 +24,7 @@ const args = Object.fromEntries(
     return pairs;
   }, [])
 );
-const out = args.out ?? "public/fidenza";
+const out = args.out ?? ".assets/fidenza";
 const quality = args.quality ?? "80";
 const limit = Number(args.limit ?? Infinity);
 const LONG_SIDE = 400; // the thumbs are 1000x1200, so this gives 333x400

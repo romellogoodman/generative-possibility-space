@@ -24,7 +24,7 @@ export function outputFromId(id) {
 // The parameter map is a MAP_SIZE square in world space, split into more steps as you zoom in
 export const MAP_SIZE = 960;
 
-const mapSteps = (zoom) => (zoom >= 2.4 ? 32 : zoom >= 1.3 ? 16 : 8);
+export const mapSteps = (zoom) => (zoom >= 2.4 ? 32 : zoom >= 1.3 ? 16 : 8);
 
 // The output at step (i, j) of an n × n map: left to right is size, top to bottom is shade
 function mapOutput(steps, i, j) {
@@ -74,7 +74,13 @@ export function zoomAround(camera, zoom, screenX, screenY) {
 }
 
 // Cells covering the visible area plus a margin, so panning never shows gaps
-export function visibleCells(camera, width, height, cellSize) {
+export function visibleCells(
+  camera,
+  width,
+  height,
+  cellSize,
+  make = makeOutput
+) {
   const padding = cellSize;
   const startX = Math.floor((camera.x - padding) / cellSize);
   const endX = Math.ceil((camera.x + width / camera.zoom + padding) / cellSize);
@@ -86,7 +92,7 @@ export function visibleCells(camera, width, height, cellSize) {
   const cells = [];
   for (let gx = startX; gx <= endX; gx++) {
     for (let gy = startY; gy <= endY; gy++) {
-      cells.push(makeOutput(gx, gy));
+      cells.push(make(gx, gy));
     }
   }
   return cells;

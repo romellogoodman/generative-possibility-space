@@ -306,6 +306,20 @@
     display: none;
   }
 
+  // The settings gear tucks in close, so the view's own controls keep their room
+  .top-bar__divider--settings {
+    display: none;
+  }
+
+  .top-bar {
+    max-width: calc(100vw - 16px);
+  }
+
+  .chip--settings,
+  .top-bar__panel[data-content="blend"] .chip {
+    padding: 0 6px;
+  }
+
   // Only the latest steps of the trail fit on a phone
   .top-bar .trail__step:nth-last-child(n + 4) {
     display: none;

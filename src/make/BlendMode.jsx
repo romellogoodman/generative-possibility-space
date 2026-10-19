@@ -1,10 +1,11 @@
-import { short } from "../lib/outputs.js";
 import { Frame } from "../components/Output.jsx";
-import { BLEND_STEPS, blendAt } from "./blend.js";
+import { describe } from "../examples/index.js";
+import { BLEND_STEPS } from "./blend.js";
 import "./BlendMode.scss";
 
-export function BlendMode({ blend, onScrub }) {
+export function BlendMode({ example, blend, onScrub }) {
   const { a, b, t } = blend;
+  const { blendAt } = example;
   const current = blendAt(blend, t);
   const active = Math.round(t * (BLEND_STEPS - 1));
   return (
@@ -20,10 +21,11 @@ export function BlendMode({ blend, onScrub }) {
             <span className="data-table__mono">
               {Math.round((1 - t) * 100)}% A · {Math.round(t * 100)}% B
             </span>
-            <span className="data-table__mono">size {short(current.size)}</span>
-            <span className="data-table__mono">
-              shade {short(current.shade)}
-            </span>
+            {example.settings.map((s) => (
+              <span key={s.key} className="data-table__mono">
+                {s.name} {s.text(current)}
+              </span>
+            ))}
           </p>
         </div>
         <div className="blend__end">
@@ -48,7 +50,7 @@ export function BlendMode({ blend, onScrub }) {
             <button
               key={k}
               className={`alternative${k === active ? " alternative--peek" : ""}`}
-              title={`size ${short(s.size)} · shade ${short(s.shade)}`}
+              title={describe(example, s)}
               onClick={() => onScrub(k / (BLEND_STEPS - 1))}
             >
               <Frame output={s} />

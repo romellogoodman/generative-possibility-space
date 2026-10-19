@@ -18,8 +18,10 @@ export function randomOutput(draw) {
   );
 }
 
-// The output t of the way from A to B; its seed comes from both ends
+// The output t of the way from A to B; its seed comes from both ends, and the ends are A and B
 export function blendAt({ a, b }, t) {
+  if (t <= 0) return a;
+  if (t >= 1) return b;
   return seededOutput(
     Math.floor(hash(a.seed, b.seed, Math.round(t * 100)) * 1e6),
     a.size + (b.size - a.size) * t,

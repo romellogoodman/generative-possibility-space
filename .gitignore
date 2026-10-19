@@ -35,3 +35,6 @@ dist-ssr
 
 # Claude Code helper worktrees
 .claude/worktrees/
+
+# Generated image assets; they live in the gps-assets R2 bucket
+.assets/

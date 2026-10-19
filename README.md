@@ -51,3 +51,14 @@ metadata (names and traits for all 999 tokens) come from the Art Blocks token AP
 `token.artblocks.io`, saved in [`src/data/fidenza.json`](src/data/fidenza.json). The metadata is
 licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). GPS uses it
 non-commercially, as a demo.
+
+## Image assets
+
+Fidenza's small previews live in the `gps-assets` Cloudflare R2 bucket, served from its public
+r2.dev address (see `ASSETS_URL` in `src/lib/outputs.js`), not in git. To rebuild and upload them:
+
+```bash
+node scripts/fidenza-previews.mjs   # writes .assets/fidenza/<tokenId>.webp (needs cwebp)
+ls .assets/fidenza/*.webp | xargs -P 8 -I{} sh -c \
+  'wrangler r2 object put "gps-assets/fidenza/$(basename {})" --file {} --content-type image/webp --remote'
+```

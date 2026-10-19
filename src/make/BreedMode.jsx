@@ -1,9 +1,15 @@
 import { Check } from "lucide-react";
-import { short } from "../lib/outputs.js";
+import { describe } from "../examples/index.js";
 import { Frame } from "../components/Output.jsx";
 import "./BreedMode.scss";
 
-export function BreedMode({ generations, current: index, onToggle, onRewind }) {
+export function BreedMode({
+  example,
+  generations,
+  current: index,
+  onToggle,
+  onRewind,
+}) {
   const current = generations[index];
   return (
     <div className="breed">
@@ -28,7 +34,7 @@ export function BreedMode({ generations, current: index, onToggle, onRewind }) {
               >
                 <Frame output={o} />
                 <span className="breed__meta data-table__mono">
-                  size {short(o.size)} · shade {short(o.shade)}
+                  {example.brief?.(o) ?? describe(example, o)}
                   {picked && <Check className="breed__check" />}
                 </span>
               </button>

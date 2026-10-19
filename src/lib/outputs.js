@@ -1,7 +1,5 @@
 // Stand-in outputs: deterministic from a grid position or a seed, plus the helpers that vary them
 
-import fidenza from "../data/fidenza.json";
-
 // Deterministic randomness in [0, 1): the same inputs always give the same value.
 // (The crescents version only ever returned values below 0.5.)
 export function hash(x, y, seed = 0) {
@@ -11,13 +9,12 @@ export function hash(x, y, seed = 0) {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
-// The Fidenza token an output shows, picked by its seed
-export const tokenFor = (seed) =>
-  fidenza[Math.floor(hash(seed, 0, 8) * fidenza.length)];
+// Where the image assets live: the gps-assets R2 bucket's public address
+const ASSETS_URL = "https://pub-997b197b1d4547cab5898c0fda1d12fb.r2.dev";
 
-// A token's two images, both from its id: a small local preview (333x400 WebP, made by
+// A token's two images, both from its id: a small preview (333x400 WebP, made by
 // scripts/fidenza-previews.mjs) for grids, and the full 2000x2400 PNG from Art Blocks
-export const previewUrl = (token) => `/fidenza/${token.id}.webp`;
+export const previewUrl = (token) => `${ASSETS_URL}/fidenza/${token.id}.webp`;
 export const fullUrl = (token) =>
   `https://media-proxy.artblocks.io/1/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/${token.id}.png`;
 
@@ -26,13 +23,11 @@ export function makeOutput(gridX, gridY) {
   const day = Math.floor(hash(gridX, gridY, 3) * 11);
   const hour = Math.floor(hash(gridX, gridY, 4) * 24);
   const minute = Math.floor(hash(gridX, gridY, 5) * 60);
-  const seed = Math.floor(hash(gridX, gridY, 7) * 1e6);
   return {
     id: `${gridX},${gridY}`,
     gridX,
     gridY,
-    seed,
-    token: tokenFor(seed),
+    seed: Math.floor(hash(gridX, gridY, 7) * 1e6),
     size: 0.55 + hash(gridX, gridY, 1) * 0.35,
     shade: 0.45 + hash(gridX, gridY, 2) * 0.55,
     score: Math.floor(hash(gridX, gridY, 6) * 5) + 1,
@@ -48,7 +43,6 @@ export function seededOutput(seed, size, shade) {
   return {
     id: `s${seed}`,
     seed,
-    token: tokenFor(seed),
     size: round2(size),
     shade: round2(shade),
     score: Math.floor(hash(seed, 0, 6) * 5) + 1,
@@ -98,7 +92,6 @@ export function vary(output, dSize, dShade, k) {
   return {
     id: `v${seed}`,
     seed,
-    token: tokenFor(seed),
     size: round2(clamp(output.size + dSize, SIZE_RANGE)),
     shade: round2(clamp(output.shade + dShade, SHADE_RANGE)),
     score: Math.floor(hash(seed, 0, 6) * 5) + 1,

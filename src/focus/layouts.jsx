@@ -1,31 +1,20 @@
-import { useState, useEffect } from "react";
-import {
-  formatDate,
-  SIZE_RANGE,
-  SHADE_RANGE,
-  round2,
-  short,
-  vary,
-  nearby,
-} from "../lib/outputs.js";
+import { Fragment, useState, useEffect } from "react";
+import { formatDate } from "../lib/outputs.js";
 import { Score, Frame, Delta } from "../components/Output.jsx";
-import {
-  COMPASS_STEP,
-  COMPASS_ARROWS,
-  ARROW_KEYS,
-  DIALS,
-  dialSteps,
-  focusPath,
-} from "./tree.js";
+import { describe } from "../examples/index.js";
+import { COMPASS_ARROWS, ARROW_KEYS, focusPath } from "./tree.js";
 
-// Focus layouts: one output plus its variations
+// Focus layouts: one output plus its variations, all read from the example
 
-function FocusMeta({ output }) {
+function FocusMeta({ output, example }) {
   return (
     <p className="focus-meta">
       <b className="data-table__mono">#{output.seed}</b>
-      <span className="data-table__mono">size {short(output.size)}</span>
-      <span className="data-table__mono">shade {short(output.shade)}</span>
+      {example.settings.map((s) => (
+        <span key={s.key} className="data-table__mono">
+          {s.name} {s.text(output)}
+        </span>
+      ))}
       <Score value={output.score} />
       <span>{formatDate(output.created)}</span>
     </p>
@@ -46,12 +35,28 @@ function Hero({ output, children }) {
   );
 }
 
-export function StripLayout({ output, onFocus }) {
-  const variations = nearby(output, 8, 0.14, 0.22);
+// How a variation differs: numeric settings as a delta, others only when they change
+function Changes({ output, variation, example }) {
+  return example.settings
+    .filter((s) => s.numeric || s.read(variation) !== s.read(output))
+    .map((s) => (
+      <Fragment key={s.key}>
+        <span>{s.name}</span>
+        {s.numeric ? (
+          <Delta value={s.read(variation) - s.read(output)} />
+        ) : (
+          <span className="delta delta--value">{s.text(variation)}</span>
+        )}
+      </Fragment>
+    ));
+}
+
+export function StripLayout({ output, onFocus, example }) {
+  const variations = example.variations(output, "strip");
   return (
     <div className="focus-strip">
       <Hero output={output}>
-        <FocusMeta output={output} />
+        <FocusMeta output={output} example={example} />
       </Hero>
       <section>
         <p className="focus-label">Nearby variations · click to focus</p>
@@ -60,15 +65,12 @@ export function StripLayout({ output, onFocus }) {
             <button
               key={v.id}
               className="alternative focus-strip__item"
-              title={`#${v.seed} · size ${short(v.size)} · shade ${short(v.shade)}`}
+              title={`#${v.seed} · ${describe(example, v)}`}
               onClick={() => onFocus(v)}
             >
               <Frame output={v} />
               <span className="focus-strip__deltas data-table__mono">
-                <span>size</span>
-                <Delta value={v.size - output.size} />
-                <span>shade</span>
-                <Delta value={v.shade - output.shade} />
+                <Changes output={output} variation={v} example={example} />
               </span>
             </button>
           ))}
@@ -78,8 +80,9 @@ export function StripLayout({ output, onFocus }) {
   );
 }
 
-// Neighbours laid out by direction: left/right is size, up/down is shade
-export function CompassLayout({ output, onFocus }) {
+// Neighbours laid out by direction, along the example's two compass settings
+export function CompassLayout({ output, onFocus, example }) {
+  const { labels } = example.compass;
   const cells = [];
   for (let y = -1; y <= 1; y++) {
     for (let x = -1; x <= 1; x++) {
@@ -88,16 +91,7 @@ export function CompassLayout({ output, onFocus }) {
         cells.push({ dir, current: true });
         continue;
       }
-      const v = vary(
-        output,
-        x * COMPASS_STEP.size,
-        y * COMPASS_STEP.shade,
-        (y + 1) * 3 + x + 1
-      );
-      const stuck =
-        (x && v.size === round2(output.size)) ||
-        (y && v.shade === round2(output.shade));
-      cells.push({ dir, variation: stuck ? null : v });
+      cells.push({ dir, variation: example.compass.step(output, x, y) });
     }
   }
 
@@ -116,16 +110,16 @@ export function CompassLayout({ output, onFocus }) {
     <div className="focus-compass">
       <div className="focus-compass__dial">
         <span className="focus-compass__axis focus-compass__axis--up">
-          ↑ lighter
+          {labels.up}
         </span>
         <span className="focus-compass__axis focus-compass__axis--down">
-          darker ↓
+          {labels.down}
         </span>
         <span className="focus-compass__axis focus-compass__axis--left">
-          smaller
+          {labels.left}
         </span>
         <span className="focus-compass__axis focus-compass__axis--right">
-          bigger
+          {labels.right}
         </span>
         <div className="focus-compass__grid">
           {cells.map(({ dir, current, variation }) => {
@@ -158,7 +152,7 @@ export function CompassLayout({ output, onFocus }) {
               <button
                 key={dir}
                 className="focus-compass__cell alternative"
-                title={`${COMPASS_ARROWS[dir]} #${variation.seed} · size ${short(variation.size)} · shade ${short(variation.shade)}`}
+                title={`${COMPASS_ARROWS[dir]} #${variation.seed} · ${describe(example, variation)}`}
                 onClick={() => onFocus(variation)}
               >
                 <span className="focus-compass__arrow">
@@ -170,7 +164,7 @@ export function CompassLayout({ output, onFocus }) {
           })}
         </div>
       </div>
-      <FocusMeta output={output} />
+      <FocusMeta output={output} example={example} />
       <p className="focus-label focus-label--hover-only">
         Arrow keys step in a direction
       </p>
@@ -178,19 +172,28 @@ export function CompassLayout({ output, onFocus }) {
   );
 }
 
-function RangeMeter({ value, range: [min, max] }) {
+// Where a value sits in its setting's range, from 0 to 1
+function RangeMeter({ at }) {
   return (
     <span className="range-meter">
-      <span
-        className="range-meter__fill"
-        style={{ width: `${((value - min) / (max - min)) * 100}%` }}
-      />
+      <span className="range-meter__fill" style={{ width: `${at * 100}%` }} />
     </span>
   );
 }
 
-export function InspectorLayout({ output, onFocus }) {
-  const variations = nearby(output, 6, 0.15, 0.24);
+// A changed setting: a delta when it's a number, otherwise whether it changed
+function Difference({ setting, from, to }) {
+  if (setting.numeric)
+    return <Delta value={setting.read(to) - setting.read(from)} />;
+  return setting.read(to) === setting.read(from) ? (
+    <span className="delta delta--none">same</span>
+  ) : (
+    <span className="delta">new</span>
+  );
+}
+
+export function InspectorLayout({ output, onFocus, example }) {
+  const variations = example.variations(output, "inspector");
   const [peekId, setPeekId] = useState(null);
   const peek = variations.find((v) => v.id === peekId);
 
@@ -205,16 +208,15 @@ export function InspectorLayout({ output, onFocus }) {
           <dl className="properties">
             <dt>Seed</dt>
             <dd className="data-table__mono">#{output.seed}</dd>
-            <dt>Size</dt>
-            <dd className="focus-inspector__value">
-              <span className="data-table__mono">{short(output.size)}</span>
-              <RangeMeter value={output.size} range={SIZE_RANGE} />
-            </dd>
-            <dt>Shade</dt>
-            <dd className="focus-inspector__value">
-              <span className="data-table__mono">{short(output.shade)}</span>
-              <RangeMeter value={output.shade} range={SHADE_RANGE} />
-            </dd>
+            {example.settings.map((s) => (
+              <Fragment key={s.key}>
+                <dt>{s.label}</dt>
+                <dd className="focus-inspector__value">
+                  <span className="data-table__mono">{s.text(output)}</span>
+                  {s.position && <RangeMeter at={s.position(output)} />}
+                </dd>
+              </Fragment>
+            ))}
             <dt>Score</dt>
             <dd>
               <Score value={output.score} />
@@ -257,14 +259,14 @@ export function InspectorLayout({ output, onFocus }) {
               <span className="data-table__mono">{output.seed}</span>
               <span className="data-table__mono">{peek.seed}</span>
               <span />
-              <span className="compare__key">Size</span>
-              <span className="data-table__mono">{short(output.size)}</span>
-              <span className="data-table__mono">{short(peek.size)}</span>
-              <Delta value={peek.size - output.size} />
-              <span className="compare__key">Shade</span>
-              <span className="data-table__mono">{short(output.shade)}</span>
-              <span className="data-table__mono">{short(peek.shade)}</span>
-              <Delta value={peek.shade - output.shade} />
+              {example.settings.map((s) => (
+                <Fragment key={s.key}>
+                  <span className="compare__key">{s.label}</span>
+                  <span className="data-table__mono">{s.text(output)}</span>
+                  <span className="data-table__mono">{s.text(peek)}</span>
+                  <Difference setting={s} from={output} to={peek} />
+                </Fragment>
+              ))}
               <span className="compare__key">Score</span>
               <span>{output.score}</span>
               <span>{peek.score}</span>
@@ -281,18 +283,18 @@ export function InspectorLayout({ output, onFocus }) {
   );
 }
 
-export function DialsLayout({ output, onFocus }) {
+export function DialsLayout({ output, onFocus, example }) {
   return (
     <div className="focus-dials">
       <Hero output={output}>
-        <FocusMeta output={output} />
+        <FocusMeta output={output} example={example} />
       </Hero>
       <section
         className="focus-dials__rows"
         aria-label="Variations, one property at a time"
       >
-        {DIALS.map((dial, d) => {
-          const [min, max] = dial.range;
+        {example.dials.map((dial) => {
+          const track = dial.track(output);
           return (
             <div key={dial.key} className="dial">
               <div className="dial__header">
@@ -300,8 +302,9 @@ export function DialsLayout({ output, onFocus }) {
                 <span className="dial__note">{dial.note}</span>
               </div>
               <div className="dial__row">
-                {dialSteps(output, dial).map((i, n) => {
-                  if (i === null)
+                {dial.steps(output).map((i, n) => {
+                  const v = i ? dial.at(output, i) : null;
+                  if (i === null || (i && !v))
                     return (
                       <div key={n} className="dial__step dial__step--empty" />
                     );
@@ -314,26 +317,20 @@ export function DialsLayout({ output, onFocus }) {
                       >
                         <Frame output={output} />
                         <span className="dial__value">
-                          {short(output[dial.key])}
+                          {dial.value(output)}
                         </span>
                       </div>
                     );
                   }
-                  const v = vary(
-                    output,
-                    dial.key === "size" ? i * dial.step : 0,
-                    dial.key === "shade" ? i * dial.step : 0,
-                    d * 10 + i + 5
-                  );
                   return (
                     <button
                       key={n}
                       className="dial__step alternative"
-                      title={`#${v.seed} · ${dial.key} ${short(v[dial.key])}`}
+                      title={`#${v.seed} · ${dial.key} ${dial.value(v)}`}
                       onClick={() => onFocus(v)}
                     >
                       <Frame output={v} />
-                      <span className="dial__value">{short(v[dial.key])}</span>
+                      <span className="dial__value">{dial.value(v)}</span>
                     </button>
                   );
                 })}
@@ -342,15 +339,11 @@ export function DialsLayout({ output, onFocus }) {
                 className="dial__track"
                 title={`Where this output sits in the full ${dial.key} range`}
               >
-                <span>{short(min)}</span>
+                <span>{track.min}</span>
                 <span className="dial__bar">
-                  <i
-                    style={{
-                      left: `${((output[dial.key] - min) / (max - min)) * 100}%`,
-                    }}
-                  />
+                  <i style={{ left: `${track.at * 100}%` }} />
                 </span>
-                <span>{short(max)}</span>
+                <span>{track.max}</span>
               </div>
             </div>
           );
@@ -394,9 +387,9 @@ function LineageNode({ node, nodes, path, current, onGoTo }) {
   );
 }
 
-export function LineageLayout({ output, onFocus, lineage }) {
+export function LineageLayout({ output, onFocus, lineage, example }) {
   const { nodes, current, onGoTo } = lineage;
-  const variations = nearby(output, 6, 0.14, 0.22);
+  const variations = example.variations(output, "lineage");
   const visited = new Set(
     nodes.filter((n) => n.parent === current).map((n) => n.output.id)
   );
@@ -408,7 +401,7 @@ export function LineageLayout({ output, onFocus, lineage }) {
     <div className="lineage">
       <div className="lineage__main">
         <Hero output={output}>
-          <FocusMeta output={output} />
+          <FocusMeta output={output} example={example} />
         </Hero>
         <p className="focus-label">
           Variations · a dot means you have been there
@@ -418,7 +411,7 @@ export function LineageLayout({ output, onFocus, lineage }) {
             <button
               key={v.id}
               className={`alternative${visited.has(v.id) ? " alternative--visited" : ""}`}
-              title={`#${v.seed} · size ${short(v.size)} · shade ${short(v.shade)}`}
+              title={`#${v.seed} · ${describe(example, v)}`}
               onClick={() => onFocus(v)}
             >
               <Frame output={v} />

@@ -7,10 +7,12 @@ import {
   Maximize2,
   Minus,
   Plus,
+  Settings,
 } from "lucide-react";
 import { Frame } from "../components/Output.jsx";
 import { CANVAS_LAYOUTS } from "../canvas/layouts.js";
-import { SORT_KEYS, nextSort, GROUPINGS } from "../table/data.jsx";
+import { sortKeys, nextSort, GROUPINGS } from "../table/data.jsx";
+import { EXAMPLES, supports } from "../examples/index.js";
 import { TABLE_LAYOUTS } from "../table/views.js";
 import { FOCUS_LAYOUTS } from "../focus/views.js";
 import { Trail } from "../focus/FocusMode.jsx";
@@ -37,7 +39,12 @@ function MorphStage({ contentKey, className = "", children }) {
       className={`top-bar__stage ${className}`}
       style={{ width: width ?? "auto" }}
     >
-      <div ref={panelRef} key={contentKey} className="top-bar__panel">
+      <div
+        ref={panelRef}
+        key={contentKey}
+        className="top-bar__panel"
+        data-content={contentKey}
+      >
         {children}
       </div>
     </div>
@@ -49,8 +56,9 @@ function SortIcon({ dir }) {
   return <Arrow className="sort-icon" />;
 }
 
-function SortMenu({ sort, onSort }) {
-  const current = SORT_KEYS.find((k) => k.key === sort.key);
+function SortMenu({ example, sort, onSort }) {
+  const keys = sortKeys(example);
+  const current = keys.find((k) => k.key === sort.key);
   return (
     <MenuButton
       title="Sort"
@@ -64,12 +72,12 @@ function SortMenu({ sort, onSort }) {
       {(close) => (
         <>
           <div className="menu__title">Sort by · pick again to flip</div>
-          {SORT_KEYS.map(({ key, label }) => (
+          {keys.map(({ key, label }) => (
             <MenuItem
               key={key}
               checked={key === sort.key}
               hint={key === sort.key ? <SortIcon dir={sort.dir} /> : null}
-              onSelect={() => onSort(nextSort(sort, key))}
+              onSelect={() => onSort(nextSort(sort, key, example))}
               close={close}
             >
               {label}
@@ -112,7 +120,36 @@ const VIEW_GROUPS = [
 
 const MAKE_MODES = ["breed", "blend"];
 
-function ViewPicker({ group, layout, onView, label: override }) {
+// The settings control: which example GPS shows
+function ExampleMenu({ example, onExample }) {
+  return (
+    <MenuButton
+      label={<Settings className="chip__icon" />}
+      title="Settings"
+      caret={false}
+      className="chip--settings"
+    >
+      {(close) => (
+        <>
+          <div className="menu__title">Example</div>
+          {EXAMPLES.map((e) => (
+            <MenuItem
+              key={e.id}
+              checked={e.id === example.id}
+              onSelect={() => onExample(e.id)}
+              close={close}
+            >
+              {e.label}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    </MenuButton>
+  );
+}
+
+// The picker lists only the views the example supports, with its copy where it differs
+function ViewPicker({ example, group, layout, onView, label: override }) {
   const label =
     override ??
     VIEW_GROUPS.find((g) => g.id === group).layouts.find((l) => l.id === layout)
@@ -129,17 +166,19 @@ function ViewPicker({ group, layout, onView, label: override }) {
         VIEW_GROUPS.map((g) => (
           <div key={g.id} className="menu__column">
             <div className="menu__title">{g.title}</div>
-            {g.layouts.map((l) => (
-              <MenuItem
-                key={l.id}
-                checked={g.id === group && l.id === layout}
-                description={l.description}
-                onSelect={() => onView(g.id, l.id)}
-                close={close}
-              >
-                {l.label}
-              </MenuItem>
-            ))}
+            {g.layouts
+              .filter((l) => supports(example, l.id))
+              .map((l) => (
+                <MenuItem
+                  key={l.id}
+                  checked={g.id === group && l.id === layout}
+                  description={example.copy[l.id] ?? l.description}
+                  onSelect={() => onView(g.id, l.id)}
+                  close={close}
+                >
+                  {l.label}
+                </MenuItem>
+              ))}
           </div>
         ))
       }
@@ -148,6 +187,8 @@ function ViewPicker({ group, layout, onView, label: override }) {
 }
 
 export function TopBar({
+  example,
+  onExample,
   mode,
   about,
   onAbout,
@@ -346,9 +387,9 @@ export function TopBar({
               <span className="chip__label">by</span> {GROUPINGS[groupBy].label}
             </>
           }
-          options={Object.entries(GROUPINGS).map(([id, g]) => ({
+          options={example.groupings.map((id) => ({
             id,
-            label: g.label,
+            label: GROUPINGS[id].label,
           }))}
           value={groupBy}
           onChange={onGroupBy}
@@ -367,7 +408,7 @@ export function TopBar({
       </>
     );
   } else {
-    context = <SortMenu sort={sort} onSort={onSort} />;
+    context = <SortMenu example={example} sort={sort} onSort={onSort} />;
   }
 
   return (
@@ -384,6 +425,7 @@ export function TopBar({
       <span className="top-bar__divider" />
       <MorphStage contentKey="view">
         <ViewPicker
+          example={example}
           group={group}
           layout={layout}
           onView={onView}
@@ -393,6 +435,8 @@ export function TopBar({
       <MorphStage contentKey={contextKey} className="top-bar__stage--context">
         {context}
       </MorphStage>
+      <span className="top-bar__divider top-bar__divider--settings" />
+      <ExampleMenu example={example} onExample={onExample} />
     </nav>
   );
 }
