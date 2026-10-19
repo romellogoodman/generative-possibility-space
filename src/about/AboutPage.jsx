@@ -31,16 +31,6 @@ const ASEMICA = {
 
 const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
 
-// The project's own site, beside its name on About
-function SiteLink({ href }) {
-  return (
-    <a className="about__site" href={href} target="_blank" rel="noreferrer">
-      {new URL(href).hostname.replace(/^www\./, "")}
-      <ArrowUpRight />
-    </a>
-  );
-}
-
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -91,16 +81,17 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">
-                Asemica <SiteLink href={ASEMICA.site} />
-              </h3>
+              <h3 className="about__example-name">Asemica</h3>
               <p className="about__text">
                 980 real outputs in an invented script. Grid runs across, margin
                 runs down, and each output keeps its composition through Breed
                 and Blend.
               </p>
               <p className="about__credit">
-                Asemica by Emily Edelman, Dima Ofman and Andrew Badr, via{" "}
+                <a href={ASEMICA.site} target="_blank" rel="noreferrer">
+                  Asemica
+                </a>{" "}
+                by Emily Edelman, Dima Ofman and Andrew Badr, via{" "}
                 <a href={ASEMICA.project} target="_blank" rel="noreferrer">
                   Art Blocks
                 </a>
@@ -109,15 +100,16 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">
-                Fidenza <SiteLink href={FIDENZA.site} />
-              </h3>
+              <h3 className="about__example-name">Fidenza</h3>
               <p className="about__text">
                 999 real outputs with 11 traits each. Density runs across,
                 turbulence runs down, scale is a dial and colors are families.
               </p>
               <p className="about__credit">
-                Fidenza by{" "}
+                <a href={FIDENZA.site} target="_blank" rel="noreferrer">
+                  Fidenza
+                </a>{" "}
+                by{" "}
                 <a href={FIDENZA.artist} target="_blank" rel="noreferrer">
                   Tyler Hobbs
                 </a>
@@ -133,16 +125,17 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">
-                Meridian <SiteLink href={MERIDIAN.site} />
-              </h3>
+              <h3 className="about__example-name">Meridian</h3>
               <p className="about__text">
                 1,000 real outputs with 6 traits each, drawn tall. Zoom runs
                 across, chromaticity runs down, frequency is a dial and style
                 and palette are families.
               </p>
               <p className="about__credit">
-                Meridian by{" "}
+                <a href={MERIDIAN.site} target="_blank" rel="noreferrer">
+                  Meridian
+                </a>{" "}
+                by{" "}
                 <a href={MERIDIAN.artist} target="_blank" rel="noreferrer">
                   Matt DesLauriers
                 </a>
