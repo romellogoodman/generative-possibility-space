@@ -1,7 +1,5 @@
 // Stand-in outputs: deterministic from a grid position or a seed, plus the helpers that vary them
 
-import fidenza from "../data/fidenza.json";
-
 // Deterministic randomness in [0, 1): the same inputs always give the same value.
 // (The crescents version only ever returned values below 0.5.)
 export function hash(x, y, seed = 0) {
@@ -11,22 +9,16 @@ export function hash(x, y, seed = 0) {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
-// The Fidenza token an output shows, picked by its seed
-export const tokenFor = (seed) =>
-  fidenza[Math.floor(hash(seed, 0, 8) * fidenza.length)];
-
 // A stand-in generative output, worked out from its grid position
 export function makeOutput(gridX, gridY) {
   const day = Math.floor(hash(gridX, gridY, 3) * 11);
   const hour = Math.floor(hash(gridX, gridY, 4) * 24);
   const minute = Math.floor(hash(gridX, gridY, 5) * 60);
-  const seed = Math.floor(hash(gridX, gridY, 7) * 1e6);
   return {
     id: `${gridX},${gridY}`,
     gridX,
     gridY,
-    seed,
-    token: tokenFor(seed),
+    seed: Math.floor(hash(gridX, gridY, 7) * 1e6),
     size: 0.55 + hash(gridX, gridY, 1) * 0.35,
     shade: 0.45 + hash(gridX, gridY, 2) * 0.55,
     score: Math.floor(hash(gridX, gridY, 6) * 5) + 1,
@@ -42,7 +34,6 @@ export function seededOutput(seed, size, shade) {
   return {
     id: `s${seed}`,
     seed,
-    token: tokenFor(seed),
     size: round2(size),
     shade: round2(shade),
     score: Math.floor(hash(seed, 0, 6) * 5) + 1,
@@ -92,7 +83,6 @@ export function vary(output, dSize, dShade, k) {
   return {
     id: `v${seed}`,
     seed,
-    token: tokenFor(seed),
     size: round2(clamp(output.size + dSize, SIZE_RANGE)),
     shade: round2(clamp(output.shade + dShade, SHADE_RANGE)),
     score: Math.floor(hash(seed, 0, 6) * 5) + 1,
