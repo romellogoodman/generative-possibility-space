@@ -34,7 +34,8 @@ const listed = (words) =>
  * - shown: the settings GPS shows; brief: the ones under small tiles (default: shown)
  * - map: { x, y, axes }, compass: { x, y, labels }, dials: { trait: note }
  * - cycle: the unordered trait variations try other values of, after stepping each dial
- * - families: [{ key, only? }], the groupings beyond day and score
+ * - families: [{ key, only? }], its groupings, the first one Grouped's default
+ * - byline: who made it and how many, for the example menu; cover: the token that stands for it
  * - keep: traits Breed children and Blend ends always share
  * - copy: picker copy for this project
  */
@@ -65,10 +66,8 @@ export function artBlocks(project) {
 
   // One output per token, made once so the same token is always the same object. `traits` are
   // the token's own; `levels` are what GPS orders and matches by, with folded values merged.
+  // GPS invents nothing about a real token: no score, and the date is when it was minted.
   const OUTPUTS = tokens.map((token, n) => {
-    const day = Math.floor(hash(n, 0, 3) * 11);
-    const hour = Math.floor(hash(n, 0, 4) * 24);
-    const minute = Math.floor(hash(n, 0, 5) * 60);
     const traits = token.features;
     return {
       id: `${project.prefix}${n}`,
@@ -79,8 +78,7 @@ export function artBlocks(project) {
         TRAITS.map((k) => [k, fold[k]?.[traits[k]] ?? traits[k]])
       ),
       size: FIXED_SIZE,
-      score: Math.floor(hash(n, 0, 6) * 5) + 1,
-      created: new Date(Date.UTC(2026, 9, 1 + day, hour, minute)),
+      minted: new Date(token.minted),
     };
   });
 
@@ -128,6 +126,7 @@ export function artBlocks(project) {
       key,
       label: key,
       name: key,
+      tag: families.some((f) => f.key === key),
       read: (o) => o.traits[key],
       text: (o) => o.traits[key],
       cell: (o) => o.traits[key],
@@ -185,7 +184,19 @@ export function artBlocks(project) {
     const bottom = camera.y + height / camera.zoom;
     const cells = [];
     PAIRS.forEach((column, i) =>
-      column.forEach((list, j) =>
+      column.forEach((list, j) => {
+        // A pair no token has shows as an empty cell, so it doesn't look like a failed load
+        if (!list.length) {
+          cells.push({
+            key: `none:${i},${j}`,
+            left: i * pairW + pairW * 0.1,
+            top: j * pairH + pairH * 0.1,
+            width: pairW * 0.8,
+            height: pairH * 0.8,
+            empty: true,
+          });
+          return;
+        }
         list.slice(0, across * down).forEach((output, n) => {
           const left = i * pairW + offsetX + (n % across) * w;
           const top = j * pairH + offsetY + Math.floor(n / across) * h;
@@ -199,8 +210,8 @@ export function artBlocks(project) {
             height: h,
             output,
           });
-        })
-      )
+        });
+      })
     );
     return cells;
   }
@@ -259,14 +270,6 @@ export function artBlocks(project) {
       },
       at: (output, i) => step(output, [[key, i]]),
       value: (output) => output.traits[key],
-      track: (output) => ({
-        min: values[0],
-        max: values.at(-1),
-        at:
-          index(output, key) < 0
-            ? null
-            : index(output, key) / (values.length - 1),
-      }),
     };
   };
 
@@ -283,11 +286,11 @@ export function artBlocks(project) {
         order: order[key]
           ? (a, b) => order[key].indexOf(a) - order[key].indexOf(b)
           : (a, b) => (a < b ? -1 : 1),
-        within: (a, b) => b.created - a.created,
+        within: (a, b) => a.seed - b.seed,
       },
     ])
   );
-  const groupings = ["day", "score", ...Object.keys(FAMILIES)];
+  const groupings = Object.keys(FAMILIES);
 
   function firstGeneration() {
     const seeds = [];
@@ -383,14 +386,21 @@ export function artBlocks(project) {
   return {
     id: project.id,
     label: project.label,
+    byline: project.byline,
+    cover: OUTPUTS[project.cover ?? 0],
+    // What each output is called by its number, and the facts beyond its settings
+    idLabel: "Token",
+    count: OUTPUTS.length,
+    facts: [{ key: "minted", label: "Minted", kind: "day", dir: -1 }],
+    defaultSort: { key: "seed", dir: 1 },
     // Every view works, molded around the traits
     views: null,
     fixedSize: FIXED_SIZE,
     aspect,
     cellAspect: box,
     settings: shown.map(setting),
-    // A short caption under small tiles, e.g. "High · Med · Jumbo · Luxe"
-    brief: (o) => brief.map((k) => o.traits[k]).join(" · "),
+    // The settings named under small tiles
+    brief: brief.map(setting),
     copy: {
       "contact-sheet": "Scan many outputs side by side at the same size.",
       grouped: `See outputs sorted into buckets by ${listed(groupings)}.`,
@@ -414,6 +424,7 @@ export function artBlocks(project) {
     // Left and right step one trait, up and down the other
     compass: {
       labels: compass.labels,
+      axes: { x: compass.x, y: compass.y },
       step: (output, x, y) =>
         step(
           output,

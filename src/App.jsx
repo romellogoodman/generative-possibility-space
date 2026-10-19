@@ -14,6 +14,7 @@ import { MUTATIONS } from "./make/breed.js";
 import { BreedMode } from "./make/BreedMode.jsx";
 import { BlendMode } from "./make/BlendMode.jsx";
 import { AboutPage } from "./about/AboutPage.jsx";
+import { SavedProvider } from "./components/Saved.jsx";
 import { TopBar } from "./topbar/TopBar.jsx";
 
 // A fresh Breed and Blend for an example
@@ -47,8 +48,8 @@ function App() {
   const [canvasLayout, setCanvasLayout] = useState(CANVAS_LAYOUTS[0].id);
   const [camera, setCamera] = useState(START_CAMERA);
   const [tableLayout, setTableLayout] = useState(TABLE_LAYOUTS[0].id);
-  const [sort, setSort] = useState({ key: "created", dir: -1 });
-  const [groupBy, setGroupBy] = useState("day");
+  const [sort, setSort] = useState(example.defaultSort);
+  const [groupBy, setGroupBy] = useState(example.groupings[0]);
   const [closedGroups, setClosedGroups] = useState(new Set());
   const [focusLayout, setFocusLayout] = useState(FOCUS_LAYOUTS[0].id);
   // The About GPS page, opened from the mark at the left of the bar
@@ -167,10 +168,12 @@ function App() {
   // The blend under the scrubber becomes one end, and the scrubber recentres
   const setBlendEnd = (end) =>
     setBlend((prev) => ({ ...prev, [end]: blendAt(prev, prev.t), t: 0.5 }));
-  const newB = () =>
+  // Shuffle one end for a random other that can blend with the end that stays
+  const shuffleEnd = (end) =>
     setBlend((prev) => {
-      const { other, draws } = partner(example, prev.a, prev.draws);
-      return { ...prev, b: other, draws };
+      const stay = end === "a" ? prev.b : prev.a;
+      const { other, draws } = partner(example, stay, prev.draws);
+      return { ...prev, [end]: other, draws };
     });
 
   // Send the output in Focus on to Blend or Breed
@@ -217,6 +220,11 @@ function App() {
         window.innerHeight / 2
       )
     );
+
+  // The map at its framed zoom reads "Fit" in the bar rather than an odd percentage
+  const fitted =
+    canvasLayout === "parameter-map" &&
+    Math.abs(camera.zoom - fitMapCamera().zoom) < 0.001;
 
   const resetView = () =>
     setCamera(canvasLayout === "parameter-map" ? fitMapCamera() : START_CAMERA);
@@ -269,9 +277,13 @@ function App() {
     setBreed((prev) => newBreed(next, prev.mutation));
     setBlend(newBlend(next));
     setClosedGroups(new Set());
-    if (!sortKeys(next).some((k) => k.key === sort.key))
-      setSort({ key: "created", dir: -1 });
-    if (!next.groupings.includes(groupBy)) setGroupBy("day");
+    // A sort you chose carries over where it can; an untouched default takes the new one's
+    const untouched =
+      sort.key === example.defaultSort.key &&
+      sort.dir === example.defaultSort.dir;
+    if (untouched || !sortKeys(next).some((k) => k.key === sort.key))
+      setSort(next.defaultSort);
+    if (!next.groupings.includes(groupBy)) setGroupBy(next.groupings[0]);
     const view = focusOpen
       ? focusLayout
       : ({ canvas: canvasLayout, table: tableLayout }[mode] ?? mode);
@@ -291,90 +303,101 @@ function App() {
   };
 
   return (
-    <main className="app" style={{ "--cell-aspect": example.cellAspect }}>
-      {/* Kept mounted under Focus so the canvas position and table state survive */}
-      {mode === "canvas" && (
-        <CanvasMode
+    <SavedProvider exampleId={exampleId}>
+      <main className="app" style={{ "--cell-aspect": example.cellAspect }}>
+        {/* Kept mounted under Focus so the canvas position and table state survive */}
+        {mode === "canvas" && (
+          <CanvasMode
+            example={example}
+            onOpen={openFrom}
+            openedId={opened?.id}
+            layoutId={canvasLayout}
+            camera={camera}
+            setCamera={setCamera}
+          />
+        )}
+        {mode === "breed" && (
+          <BreedMode
+            example={example}
+            generations={breed.generations}
+            current={breed.current}
+            onToggle={togglePick}
+            onRewind={rewind}
+          />
+        )}
+        {mode === "blend" && (
+          <BlendMode
+            example={example}
+            blend={blend}
+            onScrub={(t) => setBlend((prev) => ({ ...prev, t }))}
+            onShuffle={shuffleEnd}
+          />
+        )}
+        {mode === "table" && (
+          <TableMode
+            example={example}
+            onOpen={openFrom}
+            paused={Boolean(focus)}
+            layout={tableLayout}
+            sort={sort}
+            onSort={setSort}
+            groupBy={groupBy}
+            closed={closedGroups}
+            onToggleGroup={toggleGroup}
+          />
+        )}
+        {focus && (
+          <FocusMode
+            example={example}
+            output={focused.output}
+            layoutId={focusLayout}
+            onFocus={focusOn}
+            lineage={{ ...focus, onGoTo: goTo }}
+          />
+        )}
+        {about && (
+          <AboutPage
+            example={example}
+            onExample={(id) => {
+              switchExample(id);
+              setAbout(false);
+            }}
+          />
+        )}
+        <TopBar
           example={example}
-          onOpen={openFrom}
-          openedId={opened?.id}
-          layoutId={canvasLayout}
-          camera={camera}
-          setCamera={setCamera}
-        />
-      )}
-      {mode === "breed" && (
-        <BreedMode
-          example={example}
-          generations={breed.generations}
-          current={breed.current}
-          onToggle={togglePick}
-          onRewind={rewind}
-        />
-      )}
-      {mode === "blend" && (
-        <BlendMode
-          example={example}
-          blend={blend}
-          onScrub={(t) => setBlend((prev) => ({ ...prev, t }))}
-        />
-      )}
-      {mode === "table" && (
-        <TableMode
-          example={example}
-          onOpen={openFrom}
-          paused={Boolean(focus)}
-          layout={tableLayout}
+          onExample={switchExample}
+          mode={mode}
+          onHandOff={handOff}
+          onOpenMade={openMade}
+          opened={mode === "canvas" ? opened : null}
+          onReopen={() => openFocus(opened)}
+          onZoom={zoomBy}
+          about={about}
+          onAbout={() => setAbout((open) => !open)}
+          focus={focused}
+          onView={changeView}
+          onClose={() => (about ? setAbout(false) : closeFocus())}
+          onJump={jumpTo}
+          canvasLayout={canvasLayout}
+          zoom={camera.zoom}
+          onResetView={resetView}
+          tableLayout={tableLayout}
           sort={sort}
           onSort={setSort}
           groupBy={groupBy}
-          closed={closedGroups}
-          onToggleGroup={toggleGroup}
+          onGroupBy={setGroupBy}
+          allGroupsClosed={allGroupsClosed}
+          onToggleAllGroups={toggleAllGroups}
+          focusLayout={focusLayout}
+          breed={breed}
+          onMutation={(mutation) => setBreed((prev) => ({ ...prev, mutation }))}
+          onBreed={breedNext}
+          onBlendEnd={setBlendEnd}
+          fitted={fitted}
         />
-      )}
-      {focus && (
-        <FocusMode
-          example={example}
-          output={focused.output}
-          layoutId={focusLayout}
-          onFocus={focusOn}
-          lineage={{ ...focus, onGoTo: goTo }}
-        />
-      )}
-      {about && <AboutPage />}
-      <TopBar
-        example={example}
-        onExample={switchExample}
-        mode={mode}
-        onHandOff={handOff}
-        onOpenMade={openMade}
-        opened={mode === "canvas" ? opened : null}
-        onReopen={() => openFocus(opened)}
-        onZoom={zoomBy}
-        about={about}
-        onAbout={() => setAbout((open) => !open)}
-        focus={focused}
-        onView={changeView}
-        onClose={() => (about ? setAbout(false) : closeFocus())}
-        onJump={jumpTo}
-        canvasLayout={canvasLayout}
-        zoom={camera.zoom}
-        onResetView={resetView}
-        tableLayout={tableLayout}
-        sort={sort}
-        onSort={setSort}
-        groupBy={groupBy}
-        onGroupBy={setGroupBy}
-        allGroupsClosed={allGroupsClosed}
-        onToggleAllGroups={toggleAllGroups}
-        focusLayout={focusLayout}
-        breed={breed}
-        onMutation={(mutation) => setBreed((prev) => ({ ...prev, mutation }))}
-        onBreed={breedNext}
-        onBlendEnd={setBlendEnd}
-        onNewB={newB}
-      />
-    </main>
+      </main>
+    </SavedProvider>
   );
 }
 

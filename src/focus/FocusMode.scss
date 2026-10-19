@@ -70,6 +70,24 @@
   color: var(--color-text-light);
   font-size: 12px;
   text-align: center;
+
+  // Lineage's key: the dot a visited variation carries
+  &__dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 2px;
+    vertical-align: 1px;
+    border-radius: 50%;
+    background: var(--color-highlight);
+  }
+}
+
+// A hint inside a panel: sentence case, left-aligned with what it describes
+.focus-hint {
+  color: var(--color-text-light);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .focus-heading {
@@ -90,16 +108,10 @@
 }
 
 .focus-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px 14px;
-  color: var(--color-text-light);
-  white-space: nowrap;
+  align-items: center;
 
-  b {
-    color: var(--color-text);
-    font-weight: 500;
+  .save {
+    margin: -6px 0;
   }
 }
 
@@ -148,6 +160,8 @@
 
 .focus-strip {
   display: grid;
+  // One column no wider than the screen, so the row of variations scrolls instead of widening it
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 18px;
   height: 100%;
@@ -169,25 +183,19 @@
     gap: 5px;
     padding: 5px;
   }
+}
 
-  &__deltas {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0 6px;
+// Under a Strip variation: the one thing that moved furthest
+.focus-change {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &__name {
     color: var(--color-text-light);
-    font-size: 10.5px;
-
-    .delta {
-      text-align: right;
-    }
-
-    // A named value (e.g. "Micro-Uniform") stays on one line
-    .delta--value {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
   }
 }
 
@@ -278,6 +286,22 @@
   &__thumb {
     width: 26px;
   }
+
+  // The first visit: what the tree will become
+  &__ghost {
+    margin-top: var(--spacing-2x);
+    padding: 14px;
+    border: 1px dashed var(--color-line);
+    border-radius: 8px;
+    color: var(--color-text-light);
+    font-size: 12px;
+    line-height: 1.5;
+
+    b {
+      color: var(--color-text);
+      font-weight: 500;
+    }
+  }
 }
 
 @media (max-width: 760px) {
@@ -302,21 +326,29 @@
   padding: 0 var(--spacing-2x);
   container-type: size;
 
+  // The grid with a label on each side, written across, never sideways
   &__dial {
-    position: relative;
-    padding: 22px;
+    display: grid;
+    grid-template-areas:
+      ". up ."
+      "left grid right"
+      ". down .";
+    grid-template-columns: 84px auto 84px;
+    align-items: center;
+    gap: 10px 6px;
   }
 
   &__grid {
+    grid-area: grid;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: clamp(6px, 1.4vmin, 14px);
     // Tall cells (a --cell-aspect under 1) make the grid narrower so its height still fits;
     // each cell is 8% padding plus a frame in that shape
     width: min(
-      100cqw - 44px,
-      (100cqh - 96px) / (0.08 + 0.92 / var(--cell-aspect, 1)),
-      660px
+      100cqw - 180px,
+      (100cqh - 150px) / (0.08 + 0.92 / var(--cell-aspect, 1)),
+      620px
     );
   }
 
@@ -333,57 +365,72 @@
     }
   }
 
-  &__arrow {
-    position: absolute;
-    top: 7%;
-    left: 8%;
-    z-index: 1;
-    padding: 0 4px;
-    border-radius: 4px;
-    background: var(--color-surface);
-    color: var(--color-text-light);
-    font-size: 11px;
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-
-  &__cell:hover &__arrow,
-  &__cell:focus-visible &__arrow {
-    opacity: 1;
-  }
-
   &__axis {
-    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
     color: var(--color-text-light);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 12px;
     white-space: nowrap;
 
+    svg {
+      flex: none;
+      width: 14px;
+      height: 14px;
+    }
+
+    b {
+      color: var(--color-text);
+      font-weight: 500;
+    }
+
     &--up {
-      top: 2px;
-      left: 50%;
-      transform: translateX(-50%);
+      grid-area: up;
     }
 
     &--down {
-      bottom: 2px;
-      left: 50%;
-      transform: translateX(-50%);
+      grid-area: down;
+    }
+
+    &--left,
+    &--right {
+      flex-direction: column;
+      gap: 2px;
+      white-space: normal;
+      text-align: center;
     }
 
     &--left {
-      top: 50%;
-      left: 4px;
-      writing-mode: vertical-rl;
-      transform: translateY(-50%) rotate(180deg);
+      grid-area: left;
     }
 
     &--right {
-      top: 50%;
-      right: 4px;
-      writing-mode: vertical-rl;
-      transform: translateY(-50%);
+      grid-area: right;
+    }
+  }
+
+  &__lands {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 520px) {
+  .focus-compass {
+    &__dial {
+      grid-template-columns: 52px auto 52px;
+      gap: 8px 4px;
+    }
+
+    &__grid {
+      width: min(
+        100cqw - 112px,
+        (100cqh - 150px) / (0.08 + 0.92 / var(--cell-aspect, 1))
+      );
+    }
+
+    &__axis {
+      font-size: 11px;
     }
   }
 }
@@ -406,23 +453,38 @@
 
 .focus-inspector {
   position: absolute;
-  inset: calc(var(--top-bar-clearance) * -1) 0 calc(var(--spacing-3x) * -1);
+  inset: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--spacing-3x);
+  padding: 0 var(--spacing-3x) var(--spacing-3x);
 
   &__hero {
     min-height: 0;
-    padding: 64px var(--spacing-3x) 84px;
   }
 
+  // A panel as tall as what it holds, beside the output
   &__side {
+    align-self: center;
     display: flex;
     flex-direction: column;
     gap: 22px;
-    padding: 64px 20px 90px;
+    max-height: 100%;
+    padding: 20px;
     overflow: auto;
-    border-left: 1px solid var(--color-line);
+    border-radius: 12px;
     background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+  }
+
+  &__id {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .save {
+      margin: -6px -6px -6px 0;
+    }
   }
 
   &__value {
@@ -497,10 +559,7 @@
   }
 
   &__name {
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 600;
   }
 
   &__note {
@@ -536,38 +595,17 @@
     &--empty {
       visibility: hidden;
     }
+
+    // Hovering rings the frame only, so no box shows behind the value
+    &.alternative:hover {
+      background: none;
+      box-shadow: none;
+    }
   }
 
   &__value {
     color: var(--color-text-light);
-    font: 11px var(--font-mono);
-  }
-
-  &__track {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-unit);
-    margin: var(--spacing-unit) 4px 0;
-    color: var(--color-text-light);
-    font: 10px var(--font-mono);
-  }
-
-  &__bar {
-    position: relative;
-    flex: 1;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--color-line);
-
-    i {
-      position: absolute;
-      top: -3px;
-      width: 8px;
-      height: 8px;
-      margin-left: -4px;
-      border-radius: 50%;
-      background: var(--color-text);
-    }
+    font-size: 11px;
   }
 }
 
@@ -587,15 +625,18 @@
     inset: 0 0 calc(var(--spacing-3x) * -1);
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 56%) minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
 
     &__hero {
       padding: 0 var(--spacing-2x) 12px;
     }
 
     &__side {
+      align-self: stretch;
       padding: var(--spacing-2x) var(--spacing-2x) 90px;
-      border-left: 0;
-      border-top: 1px solid var(--color-line);
+      border-radius: 0;
+      box-shadow: inset 0 1px var(--color-line);
     }
 
     &__grid {

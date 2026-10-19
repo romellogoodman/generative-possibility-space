@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--spacing-2x);
+  gap: var(--spacing-3x);
   max-width: 880px;
   margin: 0 auto;
   padding: 0 var(--spacing-3x);
@@ -13,35 +13,145 @@
     display: grid;
     grid-template-columns: 1fr minmax(0, 2fr) 1fr;
     align-items: center;
-    gap: var(--spacing-2x);
+    gap: var(--spacing-3x);
   }
 
-  &__label {
-    display: block;
-    margin-bottom: 6px;
+  &__end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+
+    b {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-text);
+      color: var(--color-bg);
+      font-size: 11px;
+    }
+  }
+
+  &__shuffle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--color-line);
     color: var(--color-text-light);
-    font-weight: 600;
-    text-align: center;
+    font-size: 12px;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    &:hover {
+      color: var(--color-text);
+      background: var(--color-surface);
+    }
   }
 
-  &__scrubber {
-    width: 100%;
-    accent-color: var(--color-highlight);
+  &__meta {
+    margin-top: 10px;
+  }
+
+  &__where {
+    font-weight: 600;
+  }
+
+  // The strip of steps with the slider laid over it
+  &__film {
+    position: relative;
+    padding-bottom: 18px;
   }
 
   &__steps {
     display: grid;
     grid-template-columns: repeat(9, 1fr);
     gap: 6px;
+  }
 
-    .alternative {
-      padding: 4px;
+  &__step {
+    padding: 3px;
+    border-radius: 6px;
+
+    &--active .frame {
+      box-shadow:
+        inset 0 0 0 1px var(--color-line),
+        0 0 0 2px var(--color-highlight);
     }
+  }
+
+  &__rail {
+    position: absolute;
+    right: 0;
+    bottom: 4px;
+    left: 0;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-line);
+  }
+
+  &__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 2px;
+    background: var(--color-highlight);
+  }
+
+  &__knob {
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-highlight);
+    box-shadow: 0 0 0 3px var(--color-bg);
+    transform: translate(-50%, -50%);
+  }
+
+  // Invisible, over the whole strip: dragging anywhere along it scrubs
+  &__scrubber {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+  }
+
+  &__film:has(&__scrubber:focus-visible) &__knob {
+    outline: 2px solid var(--color-highlight);
+    outline-offset: 3px;
   }
 }
 
 @media (max-width: 760px) {
-  .blend__ends {
-    gap: var(--spacing-unit);
+  .blend {
+    padding-inline: var(--spacing-2x);
+
+    &__ends {
+      gap: var(--spacing-unit);
+    }
+
+    &__steps {
+      gap: 2px;
+    }
+
+    &__shuffle {
+      padding: 4px 8px;
+    }
   }
 }

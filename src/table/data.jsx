@@ -1,10 +1,11 @@
 import { formatDay } from "../lib/outputs.js";
 import { Score } from "../components/Output.jsx";
 
-// The columns a table sorts by: seed, then the example's settings, then score and date.
-// Ordered settings sort by their place in the order, not alphabetically.
+// The columns a table sorts by: the output's number, then the example's settings, then its
+// facts (score and date, or a token's mint date). Ordered settings sort by their place in the
+// order, not alphabetically.
 export const sortKeys = (example) => [
-  { key: "seed", label: "Seed", dir: 1 },
+  { key: "seed", label: example.idLabel, dir: 1, numeric: true },
   ...example.settings.map((s) => ({
     key: s.key,
     label: s.label,
@@ -12,9 +13,19 @@ export const sortKeys = (example) => [
     numeric: s.numeric,
     value: s.sortValue ?? s.read,
   })),
-  { key: "score", label: "Score", dir: -1, numeric: true },
-  { key: "created", label: "Created", dir: -1 },
+  ...example.facts.map((f) => ({ ...f, numeric: f.kind === "score" })),
 ];
+
+// The sort as a phrase where one reads naturally ("Newest first"), else null
+export function sortPhrase({ key, dir }, example) {
+  const sortKey = sortKeys(example).find((k) => k.key === key);
+  if (sortKey?.kind === "date" || sortKey?.kind === "day")
+    return dir < 0 ? "Newest first" : "Oldest first";
+  if (sortKey?.kind === "score")
+    return dir < 0 ? "Top score first" : "Low score first";
+  if (key === "seed" && dir > 0) return `${example.idLabel} order`;
+  return null;
+}
 
 export function sortOutputs(outputs, { key, dir }, example) {
   const value = sortKeys(example).find((k) => k.key === key)?.value;

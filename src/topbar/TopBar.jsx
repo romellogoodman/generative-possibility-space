@@ -2,16 +2,16 @@ import { useState, useLayoutEffect, useRef } from "react";
 import {
   ArrowDown,
   ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Ellipsis,
   Maximize2,
   Minus,
   Plus,
-  Settings,
 } from "lucide-react";
 import { Frame } from "../components/Output.jsx";
 import { CANVAS_LAYOUTS } from "../canvas/layouts.js";
-import { sortKeys, nextSort, groupingOf } from "../table/data.jsx";
+import { sortKeys, sortPhrase, nextSort, groupingOf } from "../table/data.jsx";
 import { EXAMPLES, supports } from "../examples/index.js";
 import { TABLE_LAYOUTS } from "../table/views.js";
 import { FOCUS_LAYOUTS } from "../focus/views.js";
@@ -59,14 +59,17 @@ function SortIcon({ dir }) {
 function SortMenu({ example, sort, onSort }) {
   const keys = sortKeys(example);
   const current = keys.find((k) => k.key === sort.key);
+  const phrase = sortPhrase(sort, example);
   return (
     <MenuButton
       title="Sort"
       label={
-        <>
-          <span className="chip__label">Sort</span> {current.label}{" "}
-          <SortIcon dir={sort.dir} />
-        </>
+        phrase ?? (
+          <>
+            <span className="chip__label">Sort</span> {current.label}{" "}
+            <SortIcon dir={sort.dir} />
+          </>
+        )
       }
     >
       {(close) => (
@@ -120,18 +123,23 @@ const VIEW_GROUPS = [
 
 const MAKE_MODES = ["breed", "blend"];
 
-// The settings control: which example GPS shows
+// Which example GPS shows, named in the bar with its own picture
 function ExampleMenu({ example, onExample }) {
   return (
     <MenuButton
-      label={<Settings className="chip__icon" />}
-      title="Settings"
-      caret={false}
-      className="chip--settings"
+      label={
+        <>
+          <Frame output={example.cover} className="chip__cover" />
+          <span className="chip__long">{example.label}</span>
+        </>
+      }
+      title="Example"
+      className="chip--example"
+      menuClassName="menu--examples"
     >
       {(close) => (
         <>
-          <div className="menu__title">Example</div>
+          <div className="menu__title">Showing</div>
           {EXAMPLES.map((e) => (
             <MenuItem
               key={e.id}
@@ -139,7 +147,11 @@ function ExampleMenu({ example, onExample }) {
               onSelect={() => onExample(e.id)}
               close={close}
             >
-              {e.label}
+              <Frame output={e.cover} className="menu__cover" />
+              <span className="menu__text">
+                {e.label}
+                <span className="menu__description">{e.byline}</span>
+              </span>
             </MenuItem>
           ))}
         </>
@@ -149,11 +161,10 @@ function ExampleMenu({ example, onExample }) {
 }
 
 // The picker lists only the views the example supports, with its copy where it differs
-function ViewPicker({ example, group, layout, onView, label: override }) {
-  const label =
-    override ??
-    VIEW_GROUPS.find((g) => g.id === group).layouts.find((l) => l.id === layout)
-      .label;
+function ViewPicker({ example, group, layout, onView }) {
+  const label = VIEW_GROUPS.find((g) => g.id === group).layouts.find(
+    (l) => l.id === layout
+  ).label;
   return (
     <MenuButton
       label={label}
@@ -216,7 +227,7 @@ export function TopBar({
   onMutation,
   onBreed,
   onBlendEnd,
-  onNewB,
+  fitted,
 }) {
   const grouped = tableLayout === "grouped";
   const making = MAKE_MODES.includes(mode);
@@ -255,6 +266,7 @@ export function TopBar({
     >
       <ArrowLeft className="chip__icon" />
       <span className="chip__text">{backTo}</span>
+      <span className="chip__short">Back</span>
     </button>
   );
 
@@ -295,7 +307,7 @@ export function TopBar({
           title="Mutation"
           label={
             <>
-              <span className="chip__label">mutation</span>{" "}
+              <span className="chip__label">Mutation</span>{" "}
               {MUTATIONS.find((m) => m.id === breed.mutation).label}
             </>
           }
@@ -303,15 +315,25 @@ export function TopBar({
           value={breed.mutation}
           onChange={onMutation}
         />
-        <button
-          className="chip chip--action"
-          disabled={!picks}
-          title={picks ? `Breed from ${picks} picked` : "Pick at least one"}
-          onClick={onBreed}
-        >
-          Next<span className="chip__long"> generation</span>
-          {picks > 0 && <span className="chip__count">{picks}</span>}
-        </button>
+        {picks ? (
+          <button
+            className="chip chip--action"
+            title={`Breed the next generation from the ${picks} you picked`}
+            onClick={onBreed}
+          >
+            {/* One text run: the chip's flex gap would otherwise space out each word */}
+            <span>
+              Breed<span className="chip__long"> from</span> {picks}
+            </span>
+            <ArrowRight className="chip__icon" />
+          </button>
+        ) : (
+          <span className="chip chip--note">
+            <span>
+              Pick one<span className="chip__long"> to breed</span>
+            </span>
+          </span>
+        )}
         <button
           className="chip"
           disabled={!picks}
@@ -326,14 +348,19 @@ export function TopBar({
   } else if (mode === "blend") {
     context = (
       <>
-        <button className="chip" onClick={() => onBlendEnd("a")}>
-          Make <span className="chip__long">this </span>A
+        <button
+          className="chip"
+          title="Make this blend the A end"
+          onClick={() => onBlendEnd("a")}
+        >
+          Set as A
         </button>
-        <button className="chip" onClick={() => onBlendEnd("b")}>
-          Make <span className="chip__long">this </span>B
-        </button>
-        <button className="chip" title="New random B" onClick={onNewB}>
-          New B
+        <button
+          className="chip"
+          title="Make this blend the B end"
+          onClick={() => onBlendEnd("b")}
+        >
+          Set as B
         </button>
         <button className="chip" title="Open this blend" onClick={onOpenMade}>
           <Maximize2 className="chip__icon" />
@@ -366,7 +393,7 @@ export function TopBar({
           title="Reset view (0)"
           onClick={onResetView}
         >
-          {Math.round(zoom * 100)}%
+          {fitted ? "Fit" : `${Math.round(zoom * 100)}%`}
         </button>
         <button
           className="chip chip--zoom-step"
@@ -384,7 +411,7 @@ export function TopBar({
           title="Group by"
           label={
             <>
-              <span className="chip__label">by</span>{" "}
+              <span className="chip__label">Group by</span>{" "}
               {groupingOf(example, groupBy).label}
             </>
           }
@@ -421,7 +448,6 @@ export function TopBar({
         onClick={onAbout}
       >
         gps
-        <span className="chip__dot" />
       </button>
       <span className="top-bar__divider" />
       <MorphStage contentKey="view">
@@ -430,13 +456,12 @@ export function TopBar({
           group={group}
           layout={layout}
           onView={onView}
-          label={about ? "About GPS" : undefined}
         />
       </MorphStage>
       <MorphStage contentKey={contextKey} className="top-bar__stage--context">
         {context}
       </MorphStage>
-      <span className="top-bar__divider top-bar__divider--settings" />
+      <span className="top-bar__divider top-bar__divider--example" />
       <ExampleMenu example={example} onExample={onExample} />
     </nav>
   );

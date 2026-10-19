@@ -1,23 +1,26 @@
 import { Fragment, useState, useEffect } from "react";
-import { formatDate } from "../lib/outputs.js";
-import { Score, Frame, Delta } from "../components/Output.jsx";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
+import {
+  Score,
+  Frame,
+  Delta,
+  Fact,
+  Meta,
+  Value,
+} from "../components/Output.jsx";
+import { SaveButton } from "../components/Saved.jsx";
 import { describe } from "../examples/index.js";
-import { COMPASS_ARROWS, ARROW_KEYS, focusPath } from "./tree.js";
+import { ARROW_KEYS, focusPath } from "./tree.js";
 
 // Focus layouts: one output plus its variations, all read from the example
 
+// Under the large output: its number and settings, its score where it has one, and the heart
 function FocusMeta({ output, example }) {
   return (
-    <p className="focus-meta">
-      <b className="data-table__mono">#{output.seed}</b>
-      {example.settings.map((s) => (
-        <span key={s.key} className="data-table__mono">
-          {s.name} {s.text(output)}
-        </span>
-      ))}
-      <Score value={output.score} />
-      <span>{formatDate(output.created)}</span>
-    </p>
+    <Meta output={output} settings={example.settings} className="focus-meta">
+      {output.score !== undefined && <Score value={output.score} />}
+      <SaveButton output={output} />
+    </Meta>
   );
 }
 
@@ -35,20 +38,28 @@ function Hero({ output, children }) {
   );
 }
 
-// How a variation differs: numeric settings as a delta, others only when they change
-function Changes({ output, variation, example }) {
-  return example.settings
-    .filter((s) => s.numeric || s.read(variation) !== s.read(output))
-    .map((s) => (
-      <Fragment key={s.key}>
-        <span>{s.name}</span>
-        {s.numeric ? (
-          <Delta value={s.read(variation) - s.read(output)} />
-        ) : (
-          <span className="delta delta--value">{s.text(variation)}</span>
-        )}
-      </Fragment>
-    ));
+// How a variation differs, in one line: the setting that moved furthest (a number as a delta,
+// a trait as its new value)
+function Change({ output, variation, example }) {
+  const reach = (s) =>
+    s.numeric
+      ? Math.abs(s.read(variation) - s.read(output)) / (s.range[1] - s.range[0])
+      : s.read(variation) !== s.read(output)
+        ? 1
+        : 0;
+  const [biggest] = [...example.settings].sort((a, b) => reach(b) - reach(a));
+  if (!biggest || !reach(biggest))
+    return <span className="focus-change">same</span>;
+  return (
+    <span className="focus-change">
+      <span className="focus-change__name">{biggest.label}</span>{" "}
+      {biggest.numeric ? (
+        <Delta value={biggest.read(variation) - biggest.read(output)} />
+      ) : (
+        biggest.text(variation)
+      )}
+    </span>
+  );
 }
 
 export function StripLayout({ output, onFocus, example }) {
@@ -59,7 +70,7 @@ export function StripLayout({ output, onFocus, example }) {
         <FocusMeta output={output} example={example} />
       </Hero>
       <section>
-        <p className="focus-label">Nearby variations · click to focus</p>
+        <p className="focus-label">Variations · click one to step to it</p>
         <div className="focus-strip__row">
           {variations.map((v) => (
             <button
@@ -69,9 +80,7 @@ export function StripLayout({ output, onFocus, example }) {
               onClick={() => onFocus(v)}
             >
               <Frame output={v} />
-              <span className="focus-strip__deltas data-table__mono">
-                <Changes output={output} variation={v} example={example} />
-              </span>
+              <Change output={output} variation={v} example={example} />
             </button>
           ))}
         </div>
@@ -80,9 +89,30 @@ export function StripLayout({ output, onFocus, example }) {
   );
 }
 
+// The label on one side of Compass: the direction, and the value a step that way lands on
+function CompassLabel({ side, icon: Icon, label, setting, step }) {
+  return (
+    <span className={`focus-compass__axis focus-compass__axis--${side}`}>
+      <Icon />
+      <b>{label}</b>
+      <span className="focus-compass__lands">
+        {step ? (
+          <>
+            {side === "up" || side === "down" ? `${setting.label} ` : ""}
+            <Value setting={setting} output={step} as="text" />
+          </>
+        ) : (
+          "end of range"
+        )}
+      </span>
+    </span>
+  );
+}
+
 // Neighbours laid out by direction, along the example's two compass settings
 export function CompassLayout({ output, onFocus, example }) {
-  const { labels } = example.compass;
+  const { labels, axes } = example.compass;
+  const settingOf = (key) => example.settings.find((s) => s.key === key);
   const cells = [];
   for (let y = -1; y <= 1; y++) {
     for (let x = -1; x <= 1; x++) {
@@ -94,10 +124,11 @@ export function CompassLayout({ output, onFocus, example }) {
       cells.push({ dir, variation: example.compass.step(output, x, y) });
     }
   }
+  const at = (dir) => cells.find((c) => c.dir === dir)?.variation;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const target = cells.find((c) => c.dir === ARROW_KEYS[e.key])?.variation;
+      const target = at(ARROW_KEYS[e.key]);
       if (!target) return;
       e.preventDefault();
       onFocus(target);
@@ -109,18 +140,20 @@ export function CompassLayout({ output, onFocus, example }) {
   return (
     <div className="focus-compass">
       <div className="focus-compass__dial">
-        <span className="focus-compass__axis focus-compass__axis--up">
-          {labels.up}
-        </span>
-        <span className="focus-compass__axis focus-compass__axis--down">
-          {labels.down}
-        </span>
-        <span className="focus-compass__axis focus-compass__axis--left">
-          {labels.left}
-        </span>
-        <span className="focus-compass__axis focus-compass__axis--right">
-          {labels.right}
-        </span>
+        <CompassLabel
+          side="up"
+          icon={ArrowUp}
+          label={labels.up}
+          setting={settingOf(axes.y)}
+          step={at("0,-1")}
+        />
+        <CompassLabel
+          side="left"
+          icon={ArrowLeft}
+          label={labels.left}
+          setting={settingOf(axes.x)}
+          step={at("-1,0")}
+        />
         <div className="focus-compass__grid">
           {cells.map(({ dir, current, variation }) => {
             if (current) {
@@ -158,21 +191,32 @@ export function CompassLayout({ output, onFocus, example }) {
               <button
                 key={dir}
                 className="focus-compass__cell alternative"
-                title={`${COMPASS_ARROWS[dir]} #${variation.seed} · ${describe(example, variation)}`}
+                title={`#${variation.seed} · ${describe(example, variation)}`}
                 onClick={() => onFocus(variation)}
               >
-                <span className="focus-compass__arrow">
-                  {COMPASS_ARROWS[dir]}
-                </span>
                 <Frame output={variation} box={example.cellAspect} />
               </button>
             );
           })}
         </div>
+        <CompassLabel
+          side="right"
+          icon={ArrowRight}
+          label={labels.right}
+          setting={settingOf(axes.x)}
+          step={at("1,0")}
+        />
+        <CompassLabel
+          side="down"
+          icon={ArrowDown}
+          label={labels.down}
+          setting={settingOf(axes.y)}
+          step={at("0,1")}
+        />
       </div>
       <FocusMeta output={output} example={example} />
       <p className="focus-label focus-label--hover-only">
-        Arrow keys step in a direction
+        Click a neighbour, or use the arrow keys
       </p>
     </div>
   );
@@ -212,31 +256,34 @@ export function InspectorLayout({ output, onFocus, example }) {
         <section>
           <h3 className="focus-heading">Properties</h3>
           <dl className="properties">
-            <dt>Seed</dt>
-            <dd className="data-table__mono">#{output.seed}</dd>
+            <dt>{example.idLabel}</dt>
+            <dd className="focus-inspector__id">
+              <span className="num">#{output.seed}</span>
+              <SaveButton output={output} />
+            </dd>
             {example.settings.map((s) => (
               <Fragment key={s.key}>
                 <dt>{s.label}</dt>
                 <dd className="focus-inspector__value">
-                  <span className="data-table__mono">{s.text(output)}</span>
+                  <Value setting={s} output={output} as="text" />
                   {s.position?.(output) != null && (
                     <RangeMeter at={s.position(output)} />
                   )}
                 </dd>
               </Fragment>
             ))}
-            <dt>Score</dt>
-            <dd>
-              <Score value={output.score} />
-            </dd>
-            <dt>Created</dt>
-            <dd>{formatDate(output.created)}</dd>
+            {example.facts.map((f) => (
+              <Fragment key={f.key}>
+                <dt>{f.label}</dt>
+                <dd>
+                  <Fact fact={f} output={output} />
+                </dd>
+              </Fragment>
+            ))}
           </dl>
         </section>
         <section>
-          <h3 className="focus-heading">
-            Alternatives <small>click to focus</small>
-          </h3>
+          <h3 className="focus-heading">Variations</h3>
           <div
             className="focus-inspector__grid"
             onMouseLeave={() => setPeekId(null)}
@@ -263,26 +310,30 @@ export function InspectorLayout({ output, onFocus, example }) {
               <Frame output={output} className="compare__thumb" />
               <Frame output={peek} className="compare__thumb" />
               <span />
-              <span className="compare__key">Seed</span>
-              <span className="data-table__mono">{output.seed}</span>
-              <span className="data-table__mono">{peek.seed}</span>
+              <span className="compare__key">{example.idLabel}</span>
+              <span className="num">#{output.seed}</span>
+              <span className="num">#{peek.seed}</span>
               <span />
               {example.settings.map((s) => (
                 <Fragment key={s.key}>
                   <span className="compare__key">{s.label}</span>
-                  <span className="data-table__mono">{s.text(output)}</span>
-                  <span className="data-table__mono">{s.text(peek)}</span>
+                  <Value setting={s} output={output} as="text" />
+                  <Value setting={s} output={peek} as="text" />
                   <Difference setting={s} from={output} to={peek} />
                 </Fragment>
               ))}
-              <span className="compare__key">Score</span>
-              <span>{output.score}</span>
-              <span>{peek.score}</span>
-              <Delta value={peek.score - output.score} digits={0} />
+              {output.score !== undefined && (
+                <>
+                  <span className="compare__key">Score</span>
+                  <span className="num">{output.score}</span>
+                  <span className="num">{peek.score}</span>
+                  <Delta value={peek.score - output.score} digits={0} />
+                </>
+              )}
             </div>
           ) : (
-            <p className="focus-label">
-              Hover an alternative to compare it with the focused output.
+            <p className="focus-hint">
+              Hover a variation to see what it changes.
             </p>
           )}
         </section>
@@ -302,7 +353,6 @@ export function DialsLayout({ output, onFocus, example }) {
         aria-label="Variations, one property at a time"
       >
         {example.dials.map((dial) => {
-          const track = dial.track(output);
           return (
             <div key={dial.key} className="dial">
               <div className="dial__header">
@@ -324,7 +374,9 @@ export function DialsLayout({ output, onFocus, example }) {
                         title="Current"
                       >
                         <Frame output={output} />
-                        <span className="dial__value">
+                        <span
+                          className={`dial__value${dial.numeric ? " num" : ""}`}
+                        >
                           {dial.value(output)}
                         </span>
                       </div>
@@ -338,29 +390,20 @@ export function DialsLayout({ output, onFocus, example }) {
                       onClick={() => onFocus(v)}
                     >
                       <Frame output={v} />
-                      <span className="dial__value">{dial.value(v)}</span>
+                      <span
+                        className={`dial__value${dial.numeric ? " num" : ""}`}
+                      >
+                        {dial.value(v)}
+                      </span>
                     </button>
                   );
                 })}
-              </div>
-              <div
-                className="dial__track"
-                title={`Where this output sits in the full ${dial.key} range`}
-              >
-                <span>{track.min}</span>
-                <span className="dial__bar">
-                  {track.at !== null && (
-                    <i style={{ left: `${track.at * 100}%` }} />
-                  )}
-                </span>
-                <span>{track.max}</span>
               </div>
             </div>
           );
         })}
         <p className="focus-label focus-label--wide-only">
-          Each row changes one thing and keeps the rest. Click any step to focus
-          it.
+          Each row changes one thing. Click a step to go there.
         </p>
       </section>
     </div>
@@ -377,7 +420,7 @@ function LineageNode({ node, nodes, path, current, onGoTo }) {
         onClick={() => onGoTo(node.id)}
       >
         <Frame output={node.output} className="lineage__thumb" />
-        <span className="data-table__mono">#{node.output.seed}</span>
+        <span className="num">#{node.output.seed}</span>
       </button>
       {children.length > 0 && (
         <ul>
@@ -414,7 +457,7 @@ export function LineageLayout({ output, onFocus, lineage, example }) {
           <FocusMeta output={output} example={example} />
         </Hero>
         <p className="focus-label">
-          Variations · a dot means you have been there
+          Variations · <span className="focus-label__dot" /> already visited
         </p>
         <div className="lineage__variations">
           {variations.map((v) => (
@@ -432,8 +475,8 @@ export function LineageLayout({ output, onFocus, lineage, example }) {
       <section className="lineage__tree">
         <p className="focus-heading">
           <span>
-            {nodes.length} visited · {branches} branch
-            {branches === 1 ? "" : "es"}
+            Where you've been · {nodes.length} visited
+            {branches > 1 && ` · ${branches} branches`}
           </span>
         </p>
         <ul className="lineage__list">
@@ -450,6 +493,13 @@ export function LineageLayout({ output, onFocus, lineage, example }) {
               />
             ))}
         </ul>
+        {nodes.length === 1 && (
+          <p className="lineage__ghost">
+            <b>This fills in as you explore.</b> Click a variation and it joins
+            the tree under this one. Go back to any step and branch off: each
+            branch shows here.
+          </p>
+        )}
       </section>
     </div>
   );

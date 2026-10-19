@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { fullUrl, previewUrl, round2, short } from "../lib/outputs.js";
+import {
+  fullUrl,
+  previewUrl,
+  round2,
+  formatDate,
+  formatShort,
+  formatYear,
+} from "../lib/outputs.js";
 
 // The pieces every view draws an output with
 
@@ -94,11 +101,44 @@ export function Frame({ output, className = "", full = false, box = 1 }) {
 export function Delta({ value, digits = 2 }) {
   const rounded = round2(value);
   if (!rounded) return <span className="delta delta--none">±0</span>;
-  const amount = digits ? short(Math.abs(rounded)) : Math.abs(rounded);
+  const amount = Math.abs(rounded).toFixed(digits);
   return (
     <span className="delta">
       {rounded > 0 ? "+" : "−"}
       {amount}
     </span>
+  );
+}
+
+// A fact beyond the settings (Grey squares' score and date, a token's mint date), by its kind
+// (`short` drops the time, where room is tight)
+export function Fact({ fact, output, short = false }) {
+  const value = output[fact.key];
+  if (value === undefined) return null;
+  if (fact.kind === "score") return <Score value={value} />;
+  if (fact.kind === "day") return formatYear(value);
+  return short ? formatShort(value) : formatDate(value);
+}
+
+// A setting's value: numbers in the mono face that lines digits up, words in the UI face
+export function Value({ setting, output, as = "cell" }) {
+  const text = as === "cell" ? setting.cell(output) : setting.text(output);
+  return <span className={setting.numeric ? "num" : undefined}>{text}</span>;
+}
+
+// One line naming an output: its number, then each setting as a muted name and a bright value
+export function Meta({ output, settings, lead, children, className = "" }) {
+  return (
+    <p className={`meta ${className}`}>
+      {lead}
+      {output && <b className="meta__id num">#{output.seed}</b>}
+      {settings.map((s) => (
+        <span key={s.key} className="meta__pair">
+          <span className="meta__name">{s.label}</span>{" "}
+          <Value setting={s} output={output} as="text" />
+        </span>
+      ))}
+      {children}
+    </p>
   );
 }

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { ArrowUpRight, Check, Copy } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Check, Copy } from "lucide-react";
+import { Frame } from "../components/Output.jsx";
+import { exampleById } from "../examples/index.js";
 import "./AboutPage.scss";
 
 const REPO_URL =
@@ -51,37 +53,67 @@ function CopyButton({ text }) {
   );
 }
 
+// An example's picture and name: clicking either shows that example
+function ExampleName({ id, current, onExample }) {
+  const example = exampleById(id);
+  const showing = current.id === id;
+  return (
+    <>
+      <button
+        className="about__example-cover"
+        title={`Show ${example.label}`}
+        onClick={() => onExample(id)}
+      >
+        <Frame output={example.cover} />
+      </button>
+      <h3 className="about__example-name">
+        <button onClick={() => onExample(id)}>{example.label}</button>
+        {showing && <span className="about__showing">Showing</span>}
+      </h3>
+    </>
+  );
+}
+
 // What GPS is, and the prompt that adds its views to someone's own project
-export function AboutPage() {
+export function AboutPage({ example, onExample }) {
+  const name = (id) => (
+    <ExampleName id={id} current={example} onExample={onExample} />
+  );
   return (
     <div className="about">
       <article className="about__body">
         <h1 className="about__title">Generative possibility space</h1>
-        <p className="about__lede">Ways to browse generative outputs</p>
-        <a
-          className="about__link"
-          href={REPO_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Github
-        </a>
+        <p className="about__lede">
+          Fourteen ways to look through <b>everything an algorithm makes</b>,
+          and find the one you want. The views stay the same; each example
+          brings its own settings, and GPS turns them into maps, dials and
+          families.
+        </p>
+        <p className="about__links">
+          <a
+            className="about__link"
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub <ArrowUpRight />
+          </a>
+          <a className="about__link" href="#use">
+            Use it on your own outputs <ArrowDown />
+          </a>
+        </p>
         <section className="about__section">
           <h2 className="about__heading">Examples</h2>
-          <p className="about__text">
-            Each example brings its own settings, and the views turn them into
-            axes, dials and groups.
-          </p>
           <ol className="about__examples">
             <li className="about__example">
-              <h3 className="about__example-name">Grey squares</h3>
+              {name("squares")}
               <p className="about__text">
                 Two number settings, drawn from each square's seed. Size runs
                 across, shade runs down.
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Asemica</h3>
+              {name("asemica")}
               <p className="about__text">
                 980 real outputs in an invented script. Grid runs across, margin
                 runs down, and each output keeps its composition through Breed
@@ -100,7 +132,7 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Fidenza</h3>
+              {name("fidenza")}
               <p className="about__text">
                 999 real outputs with 11 traits each. Density runs across,
                 turbulence runs down, scale is a dial and colors are families.
@@ -125,7 +157,7 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Meridian</h3>
+              {name("meridian")}
               <p className="about__text">
                 1,000 real outputs with 6 traits each, drawn tall. Zoom runs
                 across, chromaticity runs down, frequency is a dial and style
@@ -152,7 +184,7 @@ export function AboutPage() {
             </li>
           </ol>
         </section>
-        <section className="about__section">
+        <section className="about__section" id="use">
           <h2 className="about__heading">Use it on your own outputs</h2>
           <p className="about__text">
             Paste this into Claude Code in the project that makes your outputs.

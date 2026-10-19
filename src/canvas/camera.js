@@ -53,14 +53,20 @@ export function visibleMapCells(camera, width, height) {
   return cells;
 }
 
-// The camera that fits the whole map below the top bar
+// The camera that fits the whole map below the top bar. On a phone the map sits left, leaving
+// room on its right for the row labels.
 export function fitMapCamera() {
   const width = window.innerWidth;
   const height = window.innerHeight - 140;
-  const zoom = Math.min(1, (width - 64) / MAP_SIZE, height / MAP_SIZE);
+  const narrow = width < 640;
+  const zoom = Math.min(
+    1,
+    (width - (narrow ? 96 : 64)) / MAP_SIZE,
+    height / MAP_SIZE
+  );
   return {
     zoom,
-    x: -(width / zoom - MAP_SIZE) / 2,
+    x: narrow ? -16 / zoom : -(width / zoom - MAP_SIZE) / 2,
     y: -(height / zoom - MAP_SIZE) / 2 - 70 / zoom,
   };
 }
@@ -101,4 +107,5 @@ export function visibleCells(
   return cells;
 }
 
-export const START_CAMERA = { x: 0, y: 0, zoom: 1 };
+// The first row starts below the floating bar instead of under it
+export const START_CAMERA = { x: 0, y: -56, zoom: 1 };

@@ -1,10 +1,12 @@
 import { Fragment, useState, useEffect, useRef, useMemo } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
 import { formatDate, formatTime } from "../lib/outputs.js";
-import { Output, Score } from "../components/Output.jsx";
+import { Output, Score, Fact, Value } from "../components/Output.jsx";
+import { SaveButton } from "../components/Saved.jsx";
 import {
   sortKeys,
   sortOutputs,
+  sortPhrase,
   nextSort,
   canHover,
   groupingOf,
@@ -12,10 +14,35 @@ import {
 } from "./data.jsx";
 
 function SortArrow({ sort, sortKey }) {
+  if (sort.key !== sortKey) return <span className="sort-arrow" />;
+  const Arrow = sort.dir > 0 ? ArrowUp : ArrowDown;
+  return <Arrow className="sort-arrow" />;
+}
+
+// Over a table: which example and how many, and the sort as you'd say it
+function TableHeading({ example, count, sort }) {
+  const current = sortKeys(example).find((k) => k.key === sort.key);
   return (
-    <span className="sort-arrow">
-      {sort.key === sortKey ? (sort.dir > 0 ? "▲" : "▼") : ""}
-    </span>
+    <div className="table-heading">
+      <span>
+        <b>{example.label}</b>
+        <span className="table-heading__count">
+          {" "}
+          · {count}
+          {example.count
+            ? ` of ${example.count.toLocaleString("en-US")}`
+            : ""}{" "}
+          outputs
+        </span>
+      </span>
+      <span className="table-heading__sort">
+        {sortPhrase(sort, example) ?? (
+          <>
+            {current?.label} <SortArrow sort={sort} sortKey={sort.key} />
+          </>
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -27,7 +54,7 @@ function SortableHead({ example, sort, onSort, withThumb = false }) {
         {sortKeys(example).map(({ key, label, numeric }) => (
           <th
             key={key}
-            className={`data-table__head${numeric ? " data-table__head--numeric" : ""}`}
+            className={`data-table__head${numeric && key !== "seed" ? " data-table__head--numeric" : ""}`}
             aria-sort={
               sort.key === key
                 ? sort.dir > 0
@@ -42,36 +69,92 @@ function SortableHead({ example, sort, onSort, withThumb = false }) {
             </button>
           </th>
         ))}
+        <th className="data-table__head data-table__head--save">
+          <span>Saved</span>
+        </th>
       </tr>
     </thead>
+  );
+}
+
+// A setting in a cell: numbers right-aligned in mono, a family's value as a tag, words plain
+function SettingCell({ setting, output }) {
+  return (
+    <td className={setting.numeric ? "data-table__numeric" : undefined}>
+      {setting.tag ? (
+        <span className="tag">{setting.cell(output)}</span>
+      ) : (
+        <Value setting={setting} output={output} />
+      )}
+      {setting.meter && (
+        <span className="meter">
+          <span
+            className="meter__fill"
+            style={{ width: `${setting.meter(output) * 100}%` }}
+          />
+        </span>
+      )}
+    </td>
   );
 }
 
 function PropertyCells({ output, example }) {
   return (
     <>
-      <td className="data-table__mono">#{output.seed}</td>
+      <td className="data-table__id num">#{output.seed}</td>
       {example.settings.map((s) => (
+        <SettingCell key={s.key} setting={s} output={output} />
+      ))}
+      {example.facts.map((f) => (
         <td
-          key={s.key}
-          className={`data-table__mono${s.numeric ? " data-table__numeric" : ""}`}
+          key={f.key}
+          className={
+            f.kind === "score" ? "data-table__score" : "data-table__date"
+          }
         >
-          {s.cell(output)}
-          {s.meter && (
-            <span className="meter">
-              <span
-                className="meter__fill"
-                style={{ width: `${s.meter(output) * 100}%` }}
-              />
-            </span>
-          )}
+          <Fact fact={f} output={output} />
         </td>
       ))}
-      <td className="data-table__numeric">
-        <Score value={output.score} />
+      <td className="data-table__save">
+        <SaveButton output={output} />
       </td>
-      <td>{formatDate(output.created)}</td>
     </>
+  );
+}
+
+// On a phone a row is two lines: the number and the date you scan, the settings underneath
+function RowList({ example, outputs, onOpen, selectedId }) {
+  const date = example.facts.find((f) => f.kind !== "score");
+  return (
+    <ol className="row-list">
+      {outputs.map((output) => (
+        <li key={output.id}>
+          <button
+            className={`row-list__row${output.id === selectedId ? " row-list__row--selected" : ""}`}
+            onClick={() => onOpen(output)}
+          >
+            <span className="thumb">
+              <Output output={output} box={example.cellAspect} />
+            </span>
+            <span className="row-list__main">
+              <b className="num">#{output.seed}</b>
+              <span className="row-list__settings">
+                {example.settings.map((s, n) => (
+                  <Fragment key={s.key}>
+                    {n > 0 && " · "}
+                    <Value setting={s} output={output} />
+                  </Fragment>
+                ))}
+              </span>
+            </span>
+            <span className="row-list__side">
+              {date && <Fact fact={date} output={output} />}
+              {output.score !== undefined && <Score value={output.score} />}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -83,6 +166,7 @@ export function SpreadsheetLayout({
   selectedId,
   onOpen,
 }) {
+  const sorted = sortOutputs(outputs, sort, example);
   const handleKeyDown = (e, output) => {
     const row = e.currentTarget;
     if (e.key === "Enter" || e.key === " ") {
@@ -99,70 +183,79 @@ export function SpreadsheetLayout({
 
   return (
     <div className="table-layout">
-      <table className="data-table">
-        <SortableHead example={example} sort={sort} onSort={onSort} withThumb />
-        <tbody>
-          {sortOutputs(outputs, sort, example).map((output) => (
-            <tr
-              key={output.id}
-              tabIndex={0}
-              className={`data-table__row${output.id === selectedId ? " data-table__row--selected" : ""}`}
-              onClick={() => onOpen(output)}
-              onKeyDown={(e) => handleKeyDown(e, output)}
-            >
-              <td className="data-table__thumb">
-                <div className="thumb">
-                  <Output output={output} box={example.cellAspect} />
-                </div>
-              </td>
-              <PropertyCells output={output} example={example} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="spreadsheet">
+        <TableHeading example={example} count={outputs.length} sort={sort} />
+        <table className="data-table">
+          <SortableHead
+            example={example}
+            sort={sort}
+            onSort={onSort}
+            withThumb
+          />
+          <tbody>
+            {sorted.map((output) => (
+              <tr
+                key={output.id}
+                tabIndex={0}
+                className={`data-table__row${output.id === selectedId ? " data-table__row--selected" : ""}`}
+                onClick={() => onOpen(output)}
+                onKeyDown={(e) => handleKeyDown(e, output)}
+              >
+                <td className="data-table__thumb">
+                  <div className="thumb">
+                    <Output output={output} box={example.cellAspect} />
+                  </div>
+                </td>
+                <PropertyCells output={output} example={example} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <RowList
+          example={example}
+          outputs={sorted}
+          onOpen={onOpen}
+          selectedId={selectedId}
+        />
+      </div>
     </div>
   );
 }
 
-export function CardsLayout({ example, outputs, sort, selectedId, onOpen }) {
-  const highlight = (key) =>
-    sort.key === key ? " card__property--sorted" : "";
+// A card shows a few settings; the rest are a click away in Focus
+const CARD_SETTINGS = 3;
 
+export function CardsLayout({ example, outputs, sort, selectedId, onOpen }) {
   return (
     <div className="table-layout">
       <div className="cards">
         {sortOutputs(outputs, sort, example).map((output) => (
-          <button
+          <div
             key={output.id}
             className={`card${output.id === selectedId ? " card--selected" : ""}`}
-            onClick={() => onOpen(output)}
           >
-            <div className="card__image">
-              <Output output={output} scale={0.85} />
-            </div>
-            <dl className="card__properties">
-              <dt className={highlight("seed")}>Seed</dt>
-              <dd className={`data-table__mono${highlight("seed")}`}>
-                #{output.seed}
-              </dd>
-              {example.settings.map((s) => (
-                <Fragment key={s.key}>
-                  <dt className={highlight(s.key)}>{s.label}</dt>
-                  <dd className={`data-table__mono${highlight(s.key)}`}>
-                    {s.cell(output)}
-                  </dd>
-                </Fragment>
-              ))}
-              <dt className={highlight("score")}>Score</dt>
-              <dd className={highlight("score")}>
-                <Score value={output.score} />
-              </dd>
-              <dt className={highlight("created")}>Created</dt>
-              <dd className={highlight("created")}>
-                {formatDate(output.created)}
-              </dd>
-            </dl>
-          </button>
+            <button className="card__open" onClick={() => onOpen(output)}>
+              <span className="card__image">
+                <Output output={output} scale={0.85} />
+              </span>
+              <span className="card__properties">
+                <span className="card__id num">#{output.seed}</span>
+                {example.settings.slice(0, CARD_SETTINGS).map((s) => (
+                  <span key={s.key} className="card__row">
+                    <span className="card__name">{s.label}</span>
+                    <Value setting={s} output={output} />
+                  </span>
+                ))}
+                {example.facts.map((f) => (
+                  <span key={f.key} className="card__row">
+                    <span className="card__name">{f.label}</span>
+                    <Fact fact={f} output={output} short />
+                  </span>
+                ))}
+              </span>
+            </button>
+            <SaveButton output={output} className="card__save" />
+          </div>
         ))}
       </div>
     </div>
@@ -239,18 +332,27 @@ export function SplitLayout({
           </span>
         </button>
         <div className="split__meta">
-          <h2 className="split__title">#{preview.seed}</h2>
+          <div className="split__title">
+            <h2 className="num">#{preview.seed}</h2>
+            <SaveButton output={preview} />
+          </div>
           <dl className="properties">
             {example.settings.map((s) => (
               <Fragment key={s.key}>
                 <dt>{s.label}</dt>
-                <dd className="data-table__mono">{s.cell(preview)}</dd>
+                <dd>
+                  <Value setting={s} output={preview} />
+                </dd>
               </Fragment>
             ))}
-            <dt>Score</dt>
-            <dd>{preview.score} / 5</dd>
-            <dt>Created</dt>
-            <dd>{formatDate(preview.created)}</dd>
+            {example.facts.map((f) => (
+              <Fragment key={f.key}>
+                <dt>{f.label}</dt>
+                <dd>
+                  <Fact fact={f} output={preview} />
+                </dd>
+              </Fragment>
+            ))}
           </dl>
           <div className="split__actions">
             <button className="pill-button" onClick={() => onOpen(preview)}>
@@ -268,6 +370,9 @@ export function SplitLayout({
   );
 }
 
+// The grouping a setting stands for, so a row doesn't repeat what its group already says
+const groupingId = (setting) => setting.key.toLowerCase().replace(/\s+/g, "-");
+
 export function GroupedLayout({
   example,
   outputs,
@@ -282,6 +387,8 @@ export function GroupedLayout({
     () => groupOutputs(outputs, groupBy, example),
     [outputs, groupBy, example]
   );
+  const scored = example.facts.some((f) => f.kind === "score");
+  const details = example.settings.filter((s) => groupingId(s) !== groupBy);
 
   const isClosed = (key) => closed.has(`${groupBy}:${key}`);
 
@@ -290,7 +397,7 @@ export function GroupedLayout({
       <div className="grouped">
         {groups.map(({ key, list }) => {
           const average =
-            list.reduce((sum, o) => sum + o.score, 0) / list.length;
+            scored && list.reduce((sum, o) => sum + o.score, 0) / list.length;
           return (
             <section
               key={key}
@@ -301,7 +408,7 @@ export function GroupedLayout({
                 aria-expanded={!isClosed(key)}
                 onClick={() => onToggleGroup(key)}
               >
-                <span className="group__twisty">▼</span>
+                <ChevronDown className="group__twisty" />
                 <span className="group__title">
                   {grouping.title(key, list)}
                 </span>
@@ -313,7 +420,11 @@ export function GroupedLayout({
                     </span>
                   ))}
                 </span>
-                <span className="group__average">avg {average.toFixed(1)}</span>
+                {scored && groupBy !== "score" && (
+                  <span className="group__average">
+                    Score {average.toFixed(1)} avg
+                  </span>
+                )}
               </button>
               {!isClosed(key) && (
                 <div className="group__items">
@@ -326,20 +437,27 @@ export function GroupedLayout({
                       <span className="group-item__thumb">
                         <Output output={o} scale={0.85} />
                       </span>
-                      <span className="group-item__seed data-table__mono">
-                        #{o.seed}
-                      </span>
+                      <span className="group-item__seed num">#{o.seed}</span>
                       <span className="group-item__side">
-                        {groupBy !== "score" && <Score value={o.score} />}
+                        {scored && groupBy !== "score" && (
+                          <Score value={o.score} />
+                        )}
                         <span className="group-item__open">Open →</span>
                       </span>
                       <span className="group-item__details">
-                        {groupBy === "day"
-                          ? formatTime(o.created)
-                          : formatDate(o.created)}
-                        {example.settings
-                          .map((s) => ` · ${s.name} ${s.cell(o)}`)
-                          .join("")}
+                        {o.created &&
+                          (groupBy === "day"
+                            ? formatTime(o.created)
+                            : formatDate(o.created))}
+                        {details.map((s, n) => (
+                          <Fragment key={s.key}>
+                            {(o.created || n > 0) && " · "}
+                            <span className="group-item__name">
+                              {s.label}
+                            </span>{" "}
+                            <Value setting={s} output={o} />
+                          </Fragment>
+                        ))}
                       </span>
                     </button>
                   ))}

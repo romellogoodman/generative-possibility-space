@@ -158,11 +158,33 @@
     box-shadow: inset 0 0 0 1px var(--color-line);
   }
 
-  &__dot {
-    width: 6px;
-    height: 6px;
+  // A quiet note where a button would be ("Pick one to breed")
+  &--note,
+  &--note:hover {
+    color: var(--color-text-light);
+    background: none;
+    box-shadow: none;
+  }
+
+  // Which example: its picture and name, at the end of the bar
+  &--example {
+    padding: 0 10px 0 4px;
+  }
+
+  &__cover {
+    width: 24px;
     border-radius: 50%;
-    background: var(--color-highlight);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--color-line);
+
+    .output--image {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  &__short {
+    display: none;
   }
 
   // The view picker leads the bar, filled like the active choice it names
@@ -263,6 +285,23 @@
     background: color-mix(in srgb, var(--color-highlight) 16%, transparent);
   }
 
+  // An example's picture in its menu
+  &__cover {
+    width: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+
+    .output--image {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  &--examples &__item {
+    gap: 10px;
+    padding: 6px 10px 6px 8px;
+  }
+
   &__check {
     display: inline-flex;
     flex: none;
@@ -306,8 +345,13 @@
     display: none;
   }
 
-  // The settings gear tucks in close, so the view's own controls keep their room
-  .top-bar__divider--settings {
+  // Back keeps a word, so a bare arrow beside ⋯ doesn't read as a step inside the view
+  .chip--back .chip__short {
+    display: inline;
+  }
+
+  // The example tucks in close as just its picture, so the view's own controls keep their room
+  .top-bar__divider--example {
     display: none;
   }
 
@@ -315,9 +359,9 @@
     max-width: calc(100vw - 16px);
   }
 
-  .chip--settings,
+  .chip--example,
   .top-bar__panel[data-content="blend"] .chip {
-    padding: 0 6px;
+    padding: 0 4px;
   }
 
   // Only the latest steps of the trail fit on a phone

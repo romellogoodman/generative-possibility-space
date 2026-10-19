@@ -6,6 +6,7 @@ import { artBlocks } from "./artblocks.js";
 export const FIDENZA = artBlocks({
   id: "fidenza",
   label: "Fidenza",
+  byline: "Tyler Hobbs · 999",
   prefix: "f",
   tokens: fidenza,
   bucket: "fidenza",
@@ -29,18 +30,18 @@ export const FIDENZA = artBlocks({
     x: "Density",
     y: "Turbulence",
     axes: {
-      x: "sparser ← density → denser",
-      y: "wilder ← turbulence → calmer",
+      x: { name: "Density", left: "sparser", right: "denser" },
+      y: { name: "Turbulence", top: "calmer", bottom: "wilder" },
     },
   },
   compass: {
     x: "Density",
     y: "Turbulence",
     labels: {
-      up: "↑ calmer",
-      down: "wilder ↓",
-      left: "sparser",
-      right: "denser",
+      up: "Calmer",
+      down: "Wilder",
+      left: "Sparser",
+      right: "Denser",
     },
   },
   dials: {

@@ -1,20 +1,8 @@
-import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
 import { SIZE_RANGE, SHADE_RANGE, round2 } from "../lib/outputs.js";
 
 // Focus's visit tree and the constants its layouts step by
 
 export const COMPASS_STEP = { size: 0.12, shade: 0.18 };
-
-export const COMPASS_ARROWS = {
-  "-1,-1": "↖",
-  "0,-1": "↑",
-  "1,-1": "↗",
-  "-1,0": "←",
-  "1,0": "→",
-  "-1,1": "↙",
-  "0,1": "↓",
-  "1,1": "↘",
-};
 
 export const ARROW_KEYS = {
   ArrowLeft: "-1,0",

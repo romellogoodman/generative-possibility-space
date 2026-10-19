@@ -1,9 +1,43 @@
 import { useState, useEffect, useRef } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import { Output, Score } from "../components/Output.jsx";
 import { describe } from "../examples/index.js";
 import { MAP_SIZE, zoomAround, visibleCells, cellBox } from "./camera.js";
 import { CANVAS_LAYOUTS, CAPTION_ZOOM } from "./layouts.js";
 import "./CanvasMode.scss";
+
+// The map's two axis titles, set against its edges: across under the square, down beside it
+// (above it on a phone, where there's no room at the side)
+function MapAxes({ axes, camera, narrow }) {
+  const toScreen = (world, from) => (world - from) * camera.zoom;
+  const left = toScreen(0, camera.x);
+  const right = toScreen(MAP_SIZE, camera.x);
+  const top = toScreen(0, camera.y);
+  const bottom = toScreen(MAP_SIZE, camera.y);
+  return (
+    <>
+      <span
+        className="parameter-map__axis parameter-map__axis--x"
+        style={{ left: (left + right) / 2, top: bottom }}
+      >
+        <ArrowLeft /> {axes.x.left} <b>{axes.x.name}</b> {axes.x.right}{" "}
+        <ArrowRight />
+      </span>
+      <span
+        className={`parameter-map__axis parameter-map__axis--y${narrow ? " parameter-map__axis--above" : ""}`}
+        style={narrow ? { left, top } : { left, top: (top + bottom) / 2 }}
+      >
+        <span>
+          <ArrowUp /> {axes.y.top}
+        </span>
+        <b>{axes.y.name}</b>
+        <span>
+          {axes.y.bottom} <ArrowDown />
+        </span>
+      </span>
+    </>
+  );
+}
 
 // A map of named values labels each column above the square and each row on its right
 function MapTicks({ ticks, camera }) {
@@ -179,7 +213,8 @@ export function CanvasMode({
                 <Output output={output} box={box} />
                 {showCaptions && (
                   <span className="infinite-canvas__caption">
-                    #{cell.seed} <Score value={cell.score} />
+                    #{cell.seed}{" "}
+                    {cell.score !== undefined && <Score value={cell.score} />}
                   </span>
                 )}
               </div>
@@ -191,27 +226,36 @@ export function CanvasMode({
               style={{ width: MAP_SIZE, height: MAP_SIZE }}
             />
           )}
-          {mapCells.map(({ key, left, top, width, height, output }) => (
-            <div
-              key={key}
-              className={`infinite-canvas__cell${output.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
-              title={`#${output.seed} · ${describe(example, output)}`}
-              style={{ left, top, width, height }}
-            >
-              <Output output={output} scale={0.9} box={box} />
-            </div>
-          ))}
+          {mapCells.map(({ key, left, top, width, height, output, empty }) =>
+            empty ? (
+              <div
+                key={key}
+                className="parameter-map__empty"
+                style={{ left, top, width, height }}
+              >
+                none
+              </div>
+            ) : (
+              <div
+                key={key}
+                className={`infinite-canvas__cell${output.id === openedId ? " infinite-canvas__cell--opened" : ""}`}
+                title={`#${output.seed} · ${describe(example, output)}`}
+                style={{ left, top, width, height }}
+              >
+                <Output output={output} scale={0.9} box={box} />
+              </div>
+            )
+          )}
         </div>
       </div>
       {layout.mapped && (
         <>
           {map.ticks && <MapTicks ticks={map.ticks} camera={camera} />}
-          <span className="parameter-map__axis parameter-map__axis--x">
-            {map.axes.x}
-          </span>
-          <span className="parameter-map__axis parameter-map__axis--y">
-            {map.axes.y}
-          </span>
+          <MapAxes
+            axes={map.axes}
+            camera={camera}
+            narrow={viewport.width < 640}
+          />
         </>
       )}
     </>

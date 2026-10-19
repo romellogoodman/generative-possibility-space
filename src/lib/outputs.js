@@ -75,6 +75,23 @@ export const formatDay = (date) =>
     timeZone: "UTC",
   });
 
+// A day without the time, for tight spots: "Oct 11"
+export const formatShort = (date) =>
+  date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+// A real token's date, which lies years back: "Jun 11, 2021"
+export const formatYear = (date) =>
+  date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
 export const formatTime = (date) =>
   date.toLocaleTimeString("en-US", {
     hour: "numeric",

@@ -3,7 +3,6 @@ import {
   vary,
   nearby,
   round2,
-  short,
   SIZE_RANGE,
   SHADE_RANGE,
 } from "../lib/outputs.js";
@@ -14,7 +13,7 @@ import { randomOutput, blendAt } from "../make/blend.js";
 
 // Grey squares: the original stand-in generator. Each square's size and shade are drawn from its seed.
 
-// A numeric setting read straight off the output: `text` for Focus (.55), `cell` for tables (0.55)
+// A numeric setting read straight off the output, written 0.55 everywhere
 const numeric = (key, label, range, extra = {}) => ({
   key,
   label,
@@ -23,7 +22,7 @@ const numeric = (key, label, range, extra = {}) => ({
   dir: -1,
   range,
   read: (o) => o[key],
-  text: (o) => short(o[key]),
+  text: (o) => o[key].toFixed(2),
   cell: (o) => o[key].toFixed(2),
   position: (o) => (o[key] - range[0]) / (range[1] - range[0]),
   ...extra,
@@ -47,6 +46,15 @@ for (let gy = 0; gy < 6; gy++) {
 export const SQUARES = {
   id: "squares",
   label: "Grey squares",
+  byline: "The stand-in: size and shade",
+  cover: makeOutput(0, 0),
+  // What each output is called by its number, and the facts beyond its settings
+  idLabel: "Seed",
+  facts: [
+    { key: "score", label: "Score", kind: "score", dir: -1 },
+    { key: "created", label: "Created", kind: "date", dir: -1 },
+  ],
+  defaultSort: { key: "created", dir: -1 },
   // Every view works with the squares
   views: null,
   // The shape (width / height) views give the cells they lay outputs in
@@ -64,7 +72,10 @@ export const SQUARES = {
   groupings: ["day", "score", "size"],
 
   map: {
-    axes: { x: "smaller ← size → bigger", y: "darker ← shade → lighter" },
+    axes: {
+      x: { name: "Size", left: "smaller", right: "bigger" },
+      y: { name: "Shade", top: "lighter", bottom: "darker" },
+    },
     cells: (camera, width, height) =>
       visibleMapCells(camera, width, height).map(
         ({ i, j, cellSize, output }) => ({
@@ -83,11 +94,12 @@ export const SQUARES = {
   // Left and right change size, up and down change shade; null past the end of a range
   compass: {
     labels: {
-      up: "↑ lighter",
-      down: "darker ↓",
-      left: "smaller",
-      right: "bigger",
+      up: "Lighter",
+      down: "Darker",
+      left: "Smaller",
+      right: "Bigger",
     },
+    axes: { x: "size", y: "shade" },
     step(output, x, y) {
       const v = vary(
         output,
@@ -106,6 +118,7 @@ export const SQUARES = {
     key: dial.key,
     name: dial.name,
     note: dial.note,
+    numeric: true,
     steps: (output) => dialSteps(output, dial),
     at: (output, i) =>
       vary(
@@ -114,12 +127,7 @@ export const SQUARES = {
         dial.key === "shade" ? i * dial.step : 0,
         d * 10 + i + 5
       ),
-    value: (output) => short(output[dial.key]),
-    track: (output) => ({
-      min: short(dial.range[0]),
-      max: short(dial.range[1]),
-      at: (output[dial.key] - dial.range[0]) / (dial.range[1] - dial.range[0]),
-    }),
+    value: (output) => output[dial.key].toFixed(2),
   })),
 
   firstGeneration,

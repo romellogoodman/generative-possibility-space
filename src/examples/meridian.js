@@ -6,6 +6,7 @@ import { artBlocks } from "./artblocks.js";
 export const MERIDIAN = artBlocks({
   id: "meridian",
   label: "Meridian",
+  byline: "Matt DesLauriers · 1,000",
   prefix: "m",
   tokens: meridian,
   bucket: "meridian",
@@ -22,18 +23,18 @@ export const MERIDIAN = artBlocks({
     x: "Zoom",
     y: "Chromaticity",
     axes: {
-      x: "closer ← zoom → farther",
-      y: "more colors ← chromaticity → fewer colors",
+      x: { name: "Zoom", left: "closer", right: "farther" },
+      y: { name: "Chromaticity", top: "fewer colors", bottom: "more colors" },
     },
   },
   compass: {
     x: "Zoom",
     y: "Chromaticity",
     labels: {
-      up: "↑ fewer colors",
-      down: "more colors ↓",
-      left: "closer",
-      right: "farther",
+      up: "Fewer colors",
+      down: "More colors",
+      left: "Closer",
+      right: "Farther",
     },
   },
   dials: {

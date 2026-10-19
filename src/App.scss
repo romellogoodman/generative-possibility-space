@@ -1,6 +1,6 @@
 :root {
   --color-text: #e5e5e5;
-  --color-text-light: #7b7b78;
+  --color-text-light: #8a8a86;
   --color-bg: #1b1b1b;
   --color-surface: #262625;
   --color-line: #333331;
@@ -177,4 +177,74 @@ button {
   border-radius: 999px;
   background: var(--color-text);
   color: var(--color-bg);
+}
+
+// Numbers and seeds: the mono face lines their digits up. Words never use it.
+.num {
+  font-family: var(--font-mono);
+  font-size: 0.93em;
+  font-variant-numeric: tabular-nums;
+}
+
+// A family's value (Fidenza's Colors), the way Grouped buckets it
+.tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+  font-size: 12px;
+}
+
+// One line naming an output: muted names, bright values
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 14px;
+  color: var(--color-text);
+  font-size: 12px;
+
+  &__id {
+    font-weight: 600;
+  }
+
+  &__name {
+    color: var(--color-text-light);
+  }
+
+  &__lead {
+    color: var(--color-text-light);
+  }
+}
+
+// Save: a heart you set yourself
+.save {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--color-text-light);
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  }
+
+  &--on,
+  &--on:hover {
+    color: var(--color-highlight);
+
+    svg {
+      fill: currentColor;
+    }
+  }
 }

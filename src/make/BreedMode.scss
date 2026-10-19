@@ -1,23 +1,78 @@
 .breed {
   position: absolute;
   inset: var(--top-bar-clearance) 0 var(--spacing-3x);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--spacing-3x);
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 var(--spacing-3x);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 4px var(--spacing-3x) 0;
   overflow-y: auto;
+
+  &__history {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--color-text-light);
+    font-size: 12px;
+  }
+
+  &__history-label {
+    margin-right: 2px;
+  }
+
+  &__generation {
+    display: grid;
+    grid-template-columns: repeat(9, 12px);
+    gap: 2px;
+    padding: 4px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px var(--color-line);
+
+    &:hover {
+      background: var(--color-surface);
+    }
+
+    &--current {
+      box-shadow: 0 0 0 2px var(--color-highlight);
+    }
+
+    // Later generations stay until you breed from an earlier one
+    &--later {
+      opacity: 0.45;
+    }
+
+    .frame {
+      border-radius: 2px;
+    }
+  }
+
+  &--tall &__generation {
+    grid-template-columns: repeat(9, 8px);
+  }
+
+  &__picked {
+    box-shadow: 0 0 0 1.5px var(--color-highlight);
+  }
+
+  &__title {
+    color: var(--color-text-light);
+
+    b {
+      color: var(--color-text);
+      font-weight: 600;
+    }
+  }
 
   &__grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 200px));
     justify-content: center;
     gap: var(--spacing-2x);
-    margin-top: var(--spacing-unit);
   }
 
-  // Tall outputs: narrower columns, so three rows of them fit the screen...
+  // Tall outputs: narrower columns, so three rows of them fit the screen
   &--tall &__grid {
     grid-template-columns: repeat(
       3,
@@ -26,80 +81,90 @@
         min(
           200px,
           calc(
-            (100dvh - var(--top-bar-clearance) - 180px) / 3 * var(--cell-aspect)
+            (100dvh - var(--top-bar-clearance) - 220px) / 3 * var(--cell-aspect)
           )
         )
       )
     );
   }
 
-  // ... and their captions keep to one line
-  &--tall &__brief {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   &__candidate {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 6px;
+    min-width: 0;
+    padding: 0;
   }
 
-  &__meta {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    color: var(--color-text-light);
-    font-size: 11px;
+  &__frame {
+    position: relative;
+    display: block;
+    border-radius: 4px;
+    transition: box-shadow 0.15s;
   }
 
-  &__check {
-    color: var(--color-highlight);
+  &__candidate:hover &__frame {
+    box-shadow: 0 0 0 2px var(--color-line);
   }
 
-  &__history {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  &__candidate--picked &__frame,
+  &__candidate--picked:hover &__frame {
+    box-shadow: 0 0 0 2px var(--color-highlight);
   }
 
-  &__generation {
+  // Every cell shows its tick circle, so picking is plain before you try it
+  &__tick {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     display: grid;
-    grid-template-columns: 22px repeat(9, 1fr);
-    align-items: center;
-    gap: 3px;
-    padding: 4px 6px;
-    border-radius: 8px;
-    color: var(--color-text-light);
-    font-size: 11px;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 30%);
+    box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 75%);
+    color: #fff;
 
-    &:hover {
-      background: var(--color-surface);
-    }
-
-    &--current {
-      box-shadow: 0 0 0 1.5px var(--color-highlight);
-    }
-
-    // Later generations stay until you breed from an earlier one
-    &--later {
-      opacity: 0.45;
+    svg {
+      width: 13px;
+      height: 13px;
+      stroke-width: 3;
     }
   }
 
-  &__picked {
-    box-shadow:
-      inset 0 0 0 1px var(--color-line),
-      0 0 0 1.5px var(--color-highlight);
+  &__candidate--picked &__tick {
+    background: var(--color-highlight);
+    box-shadow: none;
+  }
+
+  &__brief {
+    color: var(--color-text);
+    font-size: 11.5px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  &__name {
+    color: var(--color-text-light);
+  }
+
+  &--tall &__brief {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
-@media (max-width: 760px) {
+// On a phone: two columns of bigger cells, easy to hit with a thumb
+@media (max-width: 520px) {
   .breed {
-    grid-template-columns: 1fr;
+    padding-inline: var(--spacing-2x);
+
+    &__grid,
+    &--tall &__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
   }
 }

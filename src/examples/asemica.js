@@ -8,6 +8,7 @@ import { artBlocks } from "./artblocks.js";
 export const ASEMICA = artBlocks({
   id: "asemica",
   label: "Asemica",
+  byline: "Edelman, Ofman, Badr · 980",
   prefix: "a",
   tokens: asemica,
   bucket: null,
@@ -26,18 +27,18 @@ export const ASEMICA = artBlocks({
     x: "Grid",
     y: "Margin",
     axes: {
-      x: "fewer ← grid → more",
-      y: "more margin ← margin → less margin",
+      x: { name: "Grid", left: "fewer cells", right: "more cells" },
+      y: { name: "Margin", top: "less margin", bottom: "more margin" },
     },
   },
   compass: {
     x: "Grid",
     y: "Margin",
     labels: {
-      up: "↑ less margin",
-      down: "more margin ↓",
-      left: "fewer",
-      right: "more",
+      up: "Less margin",
+      down: "More margin",
+      left: "Fewer cells",
+      right: "More cells",
     },
   },
   dials: {
