@@ -52,20 +52,23 @@ export function AboutPage() {
         </a>
         <section className="about__section">
           <h2 className="about__heading">Examples</h2>
-          <p className="about__text">Two sets of outputs, same views.</p>
+          <p className="about__text">
+            Each example brings its own settings, and the views turn them into
+            axes, dials and groups.
+          </p>
           <ol className="about__examples">
             <li className="about__example">
               <h3 className="about__example-name">Grey squares</h3>
               <p className="about__text">
-                A stand-in generator. Each square's size and shade come from its
-                seed, so it always comes back the same.
+                Two number settings, drawn from each square's seed. Size runs
+                across, shade runs down.
               </p>
             </li>
             <li className="about__example">
               <h3 className="about__example-name">Fidenza</h3>
               <p className="about__text">
-                999 real outputs, browsed by their own traits: density,
-                turbulence, scale and colors.
+                999 real outputs with 11 traits each. Density runs across,
+                turbulence runs down, scale is a dial and colors are families.
               </p>
               <p className="about__credit">
                 Fidenza by{" "}
