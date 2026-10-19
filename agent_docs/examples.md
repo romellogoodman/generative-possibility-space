@@ -11,6 +11,10 @@ Model the new example on the existing Art Blocks examples in `src/examples/` and
 - Art Blocks answers bursts with 429: fetch with low concurrency and back off.
 - Keep `id`, `name`, `hash` (`token_hash`), `aspect` (`aspect_ratio`) and `features`, and write
   the result to `src/data/<slug>.json`.
+- The token API has no dates. Add the project to `PROJECTS` in `scripts/mint-dates.mjs` and run it
+  (`node scripts/mint-dates.mjs --project <slug>`) to add each token's `minted` from the Art Blocks
+  data API.
+- Give the example a `byline` ("Artist · count") for the example menu.
 
 ## Pick the settings
 
