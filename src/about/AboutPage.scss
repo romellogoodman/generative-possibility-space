@@ -12,17 +12,21 @@
     width: min(560px, 100%);
   }
 
+  // Type runs title 32, lede 17, heading 20, body 15, note 13
+
   &__title {
-    margin: 0 0 var(--spacing-unit);
+    margin: 0 0 6px;
     font-size: var(--font-size-xl);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-weight: 650;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
   }
 
   &__lede {
     margin: 0 0 var(--spacing-2x);
     color: var(--color-text-light);
-    font-size: 15px;
+    font-size: 17px;
+    line-height: 1.4;
   }
 
   &__link {
@@ -51,15 +55,17 @@
   }
 
   &__heading {
-    margin: 0 0 6px;
-    font-size: 17px;
+    margin: 0 0 var(--spacing-unit);
+    font-size: 20px;
     font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
   }
 
   &__text {
     margin: 0 0 14px;
-    color: var(--color-text-light);
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
   }
 
   &__examples {
@@ -69,13 +75,19 @@
   }
 
   &__example {
-    margin-top: var(--spacing-2x);
+    margin-top: 20px;
+
+    .about__text {
+      margin-bottom: 6px;
+      color: var(--color-text-light);
+    }
   }
 
   &__example-name {
-    margin: 0 0 4px;
+    margin: 0 0 2px;
     font-size: 15px;
     font-weight: 600;
+    line-height: 1.4;
   }
 
   // The Fidenza credit line, small like the thanks
@@ -87,6 +99,11 @@
 
     a {
       color: var(--color-highlight);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 
