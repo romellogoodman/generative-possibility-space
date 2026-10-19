@@ -62,6 +62,34 @@
     line-height: 1.5;
   }
 
+  &__examples {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__example {
+    margin-top: var(--spacing-2x);
+  }
+
+  &__example-name {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  // The Fidenza credit line, small like the thanks
+  &__credit {
+    margin: 0;
+    color: var(--color-text-light);
+    font-size: 13px;
+    line-height: 1.5;
+
+    a {
+      color: var(--color-highlight);
+    }
+  }
+
   &__prompt {
     display: flex;
     align-items: center;

@@ -5,6 +5,14 @@ import "./AboutPage.scss";
 const REPO_URL =
   "https://github.com/romellogoodman/generative-possibility-space";
 
+// Credit for the Fidenza example: the art, where it lives, and the metadata licence
+const FIDENZA = {
+  artist: "https://tylerxhobbs.com",
+  project:
+    "https://www.artblocks.io/collections/curated/projects/0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270/78",
+  license: "https://creativecommons.org/licenses/by-nc/4.0/",
+};
+
 const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
 
 function CopyButton({ text }) {
@@ -43,14 +51,45 @@ export function AboutPage() {
           Github
         </a>
         <section className="about__section">
-          <h2 className="about__heading">What the squares are</h2>
+          <h2 className="about__heading">Examples</h2>
           <p className="about__text">
-            Every output here comes from a tiny example generator. Each square
-            has a seed, and its size and shade are drawn from that seed, so the
-            same square always comes back the same. The two numbers stand in for
-            whatever settings a real generator has. Swap in yours and the views
-            stay the same.
+            GPS hosts two examples. Each one shows the views with different
+            outputs.
           </p>
+          <ol className="about__examples">
+            <li className="about__example">
+              <h3 className="about__example-name">Grey squares</h3>
+              <p className="about__text">
+                The original stand-in generator. Each square has a seed, and its
+                size and shade are drawn from that seed, so the same square
+                always comes back the same. It has every setting GPS shows:
+                seed, size, shade, score and date. Swap in your generator and
+                the views stay the same.
+              </p>
+            </li>
+            <li className="about__example">
+              <h3 className="about__example-name">Fidenza</h3>
+              <p className="about__text">
+                999 real outputs from Art Blocks. Here GPS molds around what
+                Fidenza really has: its traits, like colors, scale and density.
+              </p>
+              <p className="about__credit">
+                Fidenza by{" "}
+                <a href={FIDENZA.artist} target="_blank" rel="noreferrer">
+                  Tyler Hobbs
+                </a>{" "}
+                (2021), via{" "}
+                <a href={FIDENZA.project} target="_blank" rel="noreferrer">
+                  Art Blocks
+                </a>
+                . Metadata is{" "}
+                <a href={FIDENZA.license} target="_blank" rel="noreferrer">
+                  CC BY-NC 4.0
+                </a>
+                . Used here non-commercially, as a demo.
+              </p>
+            </li>
+          </ol>
         </section>
         <section className="about__section">
           <h2 className="about__heading">Use it on your own outputs</h2>
