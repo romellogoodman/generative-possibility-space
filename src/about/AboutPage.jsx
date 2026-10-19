@@ -52,41 +52,35 @@ export function AboutPage() {
         </a>
         <section className="about__section">
           <h2 className="about__heading">Examples</h2>
-          <p className="about__text">
-            GPS hosts two examples. Each one shows the views with different
-            outputs.
-          </p>
+          <p className="about__text">Two sets of outputs, same views.</p>
           <ol className="about__examples">
             <li className="about__example">
               <h3 className="about__example-name">Grey squares</h3>
               <p className="about__text">
-                The original stand-in generator. Each square has a seed, and its
-                size and shade are drawn from that seed, so the same square
-                always comes back the same. It has every setting GPS shows:
-                seed, size, shade, score and date. Swap in your generator and
-                the views stay the same.
+                A stand-in generator. Each square's size and shade come from its
+                seed, so it always comes back the same.
               </p>
             </li>
             <li className="about__example">
               <h3 className="about__example-name">Fidenza</h3>
               <p className="about__text">
-                999 real outputs from Art Blocks. Here GPS molds around what
-                Fidenza really has: its traits, like colors, scale and density.
+                999 real outputs, browsed by their own traits: density,
+                turbulence, scale and colors.
               </p>
               <p className="about__credit">
                 Fidenza by{" "}
                 <a href={FIDENZA.artist} target="_blank" rel="noreferrer">
                   Tyler Hobbs
-                </a>{" "}
-                (2021), via{" "}
+                </a>
+                , via{" "}
                 <a href={FIDENZA.project} target="_blank" rel="noreferrer">
                   Art Blocks
                 </a>
-                . Metadata is{" "}
+                .{" "}
                 <a href={FIDENZA.license} target="_blank" rel="noreferrer">
                   CC BY-NC 4.0
                 </a>
-                . Used here non-commercially, as a demo.
+                , non-commercial demo.
               </p>
             </li>
           </ol>
