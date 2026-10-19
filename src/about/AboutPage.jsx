@@ -11,20 +11,35 @@ const PROJECTS_URL =
 const LICENSE_URL = "https://creativecommons.org/licenses/by-nc/4.0/";
 
 const FIDENZA = {
+  site: "https://www.tylerxhobbs.com/words/fidenza",
   artist: "https://tylerxhobbs.com",
   project: `${PROJECTS_URL}/78`,
   license: LICENSE_URL,
 };
 
 const MERIDIAN = {
+  site: "https://meridian.mattdesl.com/",
   artist: "https://www.mattdesl.com",
   project: `${PROJECTS_URL}/163`,
   license: LICENSE_URL,
 };
 
-const ASEMICA = { project: `${PROJECTS_URL}/206` };
+const ASEMICA = {
+  site: "https://asemi.ca/",
+  project: `${PROJECTS_URL}/206`,
+};
 
 const INSTALL_PROMPT = `Install the GPS skill from ${REPO_URL.replace("https://", "")} (skills/gps) and use it to add its views to this project`;
+
+// The project's own site, beside its name on About
+function SiteLink({ href }) {
+  return (
+    <a className="about__site" href={href} target="_blank" rel="noreferrer">
+      {new URL(href).hostname.replace(/^www\./, "")}
+      <ArrowUpRight />
+    </a>
+  );
+}
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -76,7 +91,9 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Asemica</h3>
+              <h3 className="about__example-name">
+                Asemica <SiteLink href={ASEMICA.site} />
+              </h3>
               <p className="about__text">
                 980 real outputs in an invented script. Grid runs across, margin
                 runs down, and each output keeps its composition through Breed
@@ -92,7 +109,9 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Fidenza</h3>
+              <h3 className="about__example-name">
+                Fidenza <SiteLink href={FIDENZA.site} />
+              </h3>
               <p className="about__text">
                 999 real outputs with 11 traits each. Density runs across,
                 turbulence runs down, scale is a dial and colors are families.
@@ -114,7 +133,9 @@ export function AboutPage() {
               </p>
             </li>
             <li className="about__example">
-              <h3 className="about__example-name">Meridian</h3>
+              <h3 className="about__example-name">
+                Meridian <SiteLink href={MERIDIAN.site} />
+              </h3>
               <p className="about__text">
                 1,000 real outputs with 6 traits each, drawn tall. Zoom runs
                 across, chromaticity runs down, frequency is a dial and style
